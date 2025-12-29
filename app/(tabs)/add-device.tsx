@@ -63,15 +63,32 @@ export default function AddDeviceScreen() {
     if (scanned) return;
     setScanned(true);
     setShowScanner(false);
-    setDeviceCode(data);
     
-    // Auto-validate the scanned code
+    // Parse QR code data - it may be JSON with device info or a plain code
+    let extractedCode = data.trim();
+    try {
+      const qrData = JSON.parse(data);
+      if (qrData.type === 'APADBANDHAV_DEVICE' && qrData.code) {
+        extractedCode = qrData.code;
+      }
+    } catch {
+      // Not JSON, use raw data as code
+    }
+    
+    setDeviceCode(extractedCode);
+    
+    // Validate the scanned code but stay on step 1 to allow device name entry
     setIsValidating(true);
     try {
-      await qrCodesAPI.validateCode(data.trim());
-      setNewDeviceCode(data.trim());
-      setNewDeviceName(deviceName.trim() || `Device ${data.slice(-4)}`);
-      setStep(2);
+      await qrCodesAPI.validateCode(extractedCode);
+      setNewDeviceCode(extractedCode);
+      // Show success message and let user enter device name
+      showAlert({ 
+        title: 'Code Valid', 
+        message: 'QR code scanned successfully! Please enter a name for your device.', 
+        icon: 'checkmark-circle', 
+        buttons: [{ text: 'OK' }] 
+      });
     } catch (error: any) {
       let message = 'Invalid device code. Please check and try again.';
       if (error.response?.data?.message) {
@@ -90,11 +107,19 @@ export default function AddDeviceScreen() {
       return;
     }
 
+    if (!deviceName.trim()) {
+      showAlert({ title: 'Required', message: 'Please enter a name for your device', icon: 'alert-circle', buttons: [{ text: 'OK' }] });
+      return;
+    }
+
     setIsValidating(true);
     try {
-      await qrCodesAPI.validateCode(deviceCode.trim());
-      setNewDeviceCode(deviceCode.trim());
-      setNewDeviceName(deviceName.trim() || `Device ${deviceCode.slice(-4)}`);
+      // Skip validation if code was already validated (from QR scan)
+      if (newDevice.code !== deviceCode.trim()) {
+        await qrCodesAPI.validateCode(deviceCode.trim());
+        setNewDeviceCode(deviceCode.trim());
+      }
+      setNewDeviceName(deviceName.trim());
       setStep(2);
     } catch (error: any) {
       let message = 'Invalid device code. Please check and try again.';

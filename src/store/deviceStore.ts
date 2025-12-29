@@ -125,11 +125,26 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
         relation,
         phone,
       }));
-      const response = await devicesAPI.create({
+      
+      // Build request payload with all fields
+      const payload: any = {
         code: newDevice.code,
         name: newDevice.name,
         emergencyContacts: cleanedContacts,
-      });
+      };
+      
+      // Add insurance fields if provided
+      if (newDevice.insurance.health) {
+        payload.healthInsurance = newDevice.insurance.health;
+      }
+      if (newDevice.insurance.vehicle) {
+        payload.vehicleInsurance = newDevice.insurance.vehicle;
+      }
+      if (newDevice.insurance.term) {
+        payload.termInsurance = newDevice.insurance.term;
+      }
+      
+      const response = await devicesAPI.create(payload);
       set((state) => ({
         devices: [...state.devices, response.data],
         isLoading: false,

@@ -4,14 +4,18 @@ import { Tabs, useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
+import { Dimensions } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useProtectedRoute } from '../../src/hooks/useProtectedRoute';
 import { FontSize, FontWeight } from '../../src/constants/theme';
 
 const TAB_ROUTES = ['dashboard', 'users', 'devices', 'alerts', 'settings'];
-const SWIPE_THRESHOLD = 80;
+const SWIPE_THRESHOLD = 50;
+const SWIPE_VELOCITY_THRESHOLD = 400;
 
 export default function AdminTabLayout() {
   const { colors } = useTheme();
@@ -35,26 +39,44 @@ export default function AdminTabLayout() {
     } else if (direction === 'right' && currentIndex > 0) {
       router.push(`/(admin)/${TAB_ROUTES[currentIndex - 1]}` as any);
     }
+    translateX.value = 0;
   }, [getCurrentIndex, router]);
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-15, 15])
+    .activeOffsetX([-15, 15])
+    .failOffsetY([-10, 10])
     .onUpdate((e) => {
-      translateX.value = Math.max(-40, Math.min(40, e.translationX * 0.2));
+      const currentIndex = getCurrentIndex();
+      const isAtStart = currentIndex === 0 && e.translationX > 0;
+      const isAtEnd = currentIndex === TAB_ROUTES.length - 1 && e.translationX < 0;
+      const resistance = isAtStart || isAtEnd ? 0.15 : 0.5;
+      translateX.value = e.translationX * resistance;
     })
     .onEnd((e) => {
-      if (e.translationX < -SWIPE_THRESHOLD || e.velocityX < -500) {
-        runOnJS(navigateToRoute)('left');
-      } else if (e.translationX > SWIPE_THRESHOLD || e.velocityX > 500) {
-        runOnJS(navigateToRoute)('right');
+      const shouldNavigateLeft = e.translationX < -SWIPE_THRESHOLD || e.velocityX < -SWIPE_VELOCITY_THRESHOLD;
+      const shouldNavigateRight = e.translationX > SWIPE_THRESHOLD || e.velocityX > SWIPE_VELOCITY_THRESHOLD;
+      
+      if (shouldNavigateLeft) {
+        translateX.value = withTiming(-SCREEN_WIDTH * 0.3, { duration: 150, easing: Easing.out(Easing.ease) }, () => {
+          runOnJS(navigateToRoute)('left');
+        });
+      } else if (shouldNavigateRight) {
+        translateX.value = withTiming(SCREEN_WIDTH * 0.3, { duration: 150, easing: Easing.out(Easing.ease) }, () => {
+          runOnJS(navigateToRoute)('right');
+        });
+      } else {
+        translateX.value = withSpring(0, { damping: 25, stiffness: 300 });
       }
-      translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
     });
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const scale = 1 - Math.abs(translateX.value) / SCREEN_WIDTH * 0.05;
+    const opacity = 1 - Math.abs(translateX.value) / SCREEN_WIDTH * 0.2;
+    return {
+      transform: [{ translateX: translateX.value }, { scale }],
+      opacity,
+    };
+  });
 
   // Show loading while checking auth
   if (isLoading) {
@@ -99,6 +121,17 @@ export default function AdminTabLayout() {
               shadowOpacity: 0.15,
               shadowRadius: 16,
               elevation: 10,
+              paddingHorizontal: 10,
+              paddingTop: 0,
+              paddingBottom: 0,
+            },
+            tabBarItemStyle: {
+              flex: 1,
+              height: 70,
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingTop: 0,
+              paddingBottom: 0,
             },
           }}
         >
@@ -107,7 +140,7 @@ export default function AdminTabLayout() {
             options={{
               title: 'Home',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent' }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
                   <Ionicons name={focused ? 'grid' : 'grid-outline'} size={26} color={focused ? '#6366f1' : color} />
                 </View>
               ),
@@ -118,7 +151,7 @@ export default function AdminTabLayout() {
             options={{
               title: 'Users',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent' }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
                   <Ionicons name={focused ? 'people' : 'people-outline'} size={26} color={focused ? '#6366f1' : color} />
                 </View>
               ),
@@ -129,7 +162,7 @@ export default function AdminTabLayout() {
             options={{
               title: 'Devices',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent' }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
                   <Ionicons name={focused ? 'hardware-chip' : 'hardware-chip-outline'} size={26} color={focused ? '#6366f1' : color} />
                 </View>
               ),
@@ -140,7 +173,7 @@ export default function AdminTabLayout() {
             options={{
               title: 'Alerts',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent' }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
                   <Ionicons name={focused ? 'warning' : 'warning-outline'} size={26} color={focused ? '#6366f1' : color} />
                 </View>
               ),
@@ -151,7 +184,7 @@ export default function AdminTabLayout() {
             options={{
               title: 'Settings',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent' }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
                   <Ionicons name={focused ? 'settings' : 'settings-outline'} size={26} color={focused ? '#6366f1' : color} />
                 </View>
               ),

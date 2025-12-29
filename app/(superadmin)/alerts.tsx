@@ -298,13 +298,13 @@ export default function AlertsManagement() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20 },
+  header: { paddingTop: 50, paddingBottom: 30, paddingHorizontal: 20 },
   headerTitle: { color: '#fff', fontSize: 24, fontWeight: '800', marginBottom: 16 },
   statsRow: { flexDirection: 'row', gap: 30 },
   statItem: { alignItems: 'center' },
   statValue: { color: '#fff', fontSize: 24, fontWeight: '800' },
   statLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
-  filtersContainer: { flexDirection: 'row', paddingHorizontal: 16, marginTop: -10, gap: 8 },
+  filtersContainer: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 16, gap: 8 },
   filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.05)' },
   filterText: { fontSize: 13, fontWeight: '600' },
   searchContainer: { paddingHorizontal: 16, marginTop: 12 },

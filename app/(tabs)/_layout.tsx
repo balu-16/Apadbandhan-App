@@ -1,18 +1,21 @@
 import { useEffect, useCallback } from 'react';
-import { View, ActivityIndicator, Alert } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
+import { Dimensions } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { useTheme } from '../../src/hooks/useTheme';
 import { useDeviceStore } from '../../src/store/deviceStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { useProtectedRoute } from '../../src/hooks/useProtectedRoute';
-import { FontSize, FontWeight } from '../../src/constants/theme';
+import { useLocationTracking } from '../../src/hooks/useLocationTracking';
 
 const TAB_ROUTES = ['home', 'add-device', 'devices', 'settings'];
-const SWIPE_THRESHOLD = 80;
+const SWIPE_THRESHOLD = 50;
+const SWIPE_VELOCITY_THRESHOLD = 400;
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -24,6 +27,9 @@ export default function TabLayout() {
   
   // Protect this route - only regular users can access
   const { isLoading } = useProtectedRoute({ requiredRole: 'user' });
+
+  // Initialize location tracking for user's devices
+  useLocationTracking();
 
   const getCurrentIndex = useCallback(() => {
     const currentRoute = pathname.split('/').pop() || '';
@@ -37,26 +43,50 @@ export default function TabLayout() {
     } else if (direction === 'right' && currentIndex > 0) {
       router.push(`/(tabs)/${TAB_ROUTES[currentIndex - 1]}` as any);
     }
+    // Reset translation after navigation
+    translateX.value = 0;
   }, [getCurrentIndex, router]);
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-15, 15])
+    .activeOffsetX([-15, 15])
+    .failOffsetY([-10, 10])
     .onUpdate((e) => {
-      translateX.value = Math.max(-40, Math.min(40, e.translationX * 0.2));
+      // Allow more natural following of finger with resistance at edges
+      const currentIndex = getCurrentIndex();
+      const isAtStart = currentIndex === 0 && e.translationX > 0;
+      const isAtEnd = currentIndex === TAB_ROUTES.length - 1 && e.translationX < 0;
+      const resistance = isAtStart || isAtEnd ? 0.15 : 0.5;
+      translateX.value = e.translationX * resistance;
     })
     .onEnd((e) => {
-      if (e.translationX < -SWIPE_THRESHOLD || e.velocityX < -500) {
-        runOnJS(navigateToRoute)('left');
-      } else if (e.translationX > SWIPE_THRESHOLD || e.velocityX > 500) {
-        runOnJS(navigateToRoute)('right');
+      const shouldNavigateLeft = e.translationX < -SWIPE_THRESHOLD || e.velocityX < -SWIPE_VELOCITY_THRESHOLD;
+      const shouldNavigateRight = e.translationX > SWIPE_THRESHOLD || e.velocityX > SWIPE_VELOCITY_THRESHOLD;
+      
+      if (shouldNavigateLeft) {
+        // Animate out to the left before navigating
+        translateX.value = withTiming(-SCREEN_WIDTH * 0.3, { duration: 150, easing: Easing.out(Easing.ease) }, () => {
+          runOnJS(navigateToRoute)('left');
+        });
+      } else if (shouldNavigateRight) {
+        // Animate out to the right before navigating
+        translateX.value = withTiming(SCREEN_WIDTH * 0.3, { duration: 150, easing: Easing.out(Easing.ease) }, () => {
+          runOnJS(navigateToRoute)('right');
+        });
+      } else {
+        // Spring back to center
+        translateX.value = withSpring(0, { damping: 25, stiffness: 300 });
       }
-      translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
     });
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    // Add slight scale and opacity effect for depth
+    const scale = 1 - Math.abs(translateX.value) / SCREEN_WIDTH * 0.05;
+    const opacity = 1 - Math.abs(translateX.value) / SCREEN_WIDTH * 0.2;
+    return {
+      transform: [{ translateX: translateX.value }, { scale }],
+      opacity,
+    };
+  });
 
   // Show loading while checking auth
   if (isLoading) {
@@ -68,24 +98,10 @@ export default function TabLayout() {
   }
 
   useEffect(() => {
-    // Request location permission and sync data when tabs load (user logged in)
+    // Sync data when tabs load (user logged in)
     const initializeApp = async () => {
-      // Request location permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(
-          'Location Permission',
-          'Location access is needed to track your devices and send accurate emergency alerts. You can enable it later in Settings.',
-          [{ text: 'OK' }]
-        );
-      }
-
-      // Only fetch data if user is authenticated
       if (isAuthenticated && token) {
-        // Sync user profile from backend
         await refreshProfile();
-
-        // Sync devices from backend
         await fetchDevices();
       }
     };
@@ -117,6 +133,16 @@ export default function TabLayout() {
               shadowRadius: 16,
               elevation: 10,
               paddingHorizontal: 10,
+              paddingTop: 0,
+              paddingBottom: 0,
+            },
+            tabBarItemStyle: {
+              flex: 1,
+              height: 70,
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingTop: 0,
+              paddingBottom: 0,
             },
           }}
         >
@@ -125,7 +151,7 @@ export default function TabLayout() {
             options={{
               title: 'Home',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent' }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
                   <Ionicons name={focused ? 'home' : 'home-outline'} size={26} color={focused ? '#6366f1' : color} />
                 </View>
               ),
@@ -136,7 +162,7 @@ export default function TabLayout() {
             options={{
               title: 'Add',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent' }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
                   <Ionicons name={focused ? 'add-circle' : 'add-circle-outline'} size={26} color={focused ? '#6366f1' : color} />
                 </View>
               ),
@@ -147,7 +173,7 @@ export default function TabLayout() {
             options={{
               title: 'Devices',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent' }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
                   <Ionicons name={focused ? 'phone-portrait' : 'phone-portrait-outline'} size={26} color={focused ? '#6366f1' : color} />
                 </View>
               ),
@@ -158,7 +184,7 @@ export default function TabLayout() {
             options={{
               title: 'Settings',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent' }}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
                   <Ionicons name={focused ? 'settings' : 'settings-outline'} size={26} color={focused ? '#6366f1' : color} />
                 </View>
               ),

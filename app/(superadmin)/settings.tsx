@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,26 +13,33 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useThemeStore } from '../../src/store/themeStore';
+import { useAlert } from '../../src/hooks/useAlert';
 
 export default function SuperAdminSettings() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { user, logout } = useAuthStore();
   const { colorScheme, setColorScheme } = useThemeStore();
+  const { showAlert } = useAlert();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/(auth)/login');
+    showAlert({
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      icon: 'log-out',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/(auth)/login');
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const toggleTheme = () => {

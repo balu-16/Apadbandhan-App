@@ -99,17 +99,21 @@ export default function HomeScreen() {
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
               <View style={styles.statIcon}>
-                <Ionicons name="phone-portrait-outline" size={24} color="#fff" />
+                <Ionicons name="phone-portrait-outline" size={22} color="#fff" />
               </View>
-              <Text style={styles.statNumber}>{devices.length}</Text>
-              <Text style={styles.statLabel}>Active Devices</Text>
+              <View style={styles.statTextContainer}>
+                <Text style={styles.statNumber}>{devices.length}</Text>
+                <Text style={styles.statLabel}>Active Devices</Text>
+              </View>
             </View>
             <View style={[styles.statCard, { backgroundColor: 'rgba(16,185,129,0.3)' }]}>
               <View style={[styles.statIcon, { backgroundColor: 'rgba(16,185,129,0.5)' }]}>
-                <Ionicons name="pulse-outline" size={24} color="#fff" />
+                <Ionicons name="pulse-outline" size={22} color="#fff" />
               </View>
-              <Text style={styles.statNumber}>{onlineDevices}</Text>
-              <Text style={styles.statLabel}>Online Now</Text>
+              <View style={styles.statTextContainer}>
+                <Text style={styles.statNumber}>{onlineDevices}</Text>
+                <Text style={styles.statLabel}>Online Now</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -213,10 +217,11 @@ const styles = StyleSheet.create({
   userName: { color: '#fff', fontSize: 20, fontWeight: '700', marginTop: 2 },
   notificationBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
   statsRow: { flexDirection: 'row', gap: 12 },
-  statCard: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, gap: 12 },
-  statIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  statNumber: { color: '#fff', fontSize: 28, fontWeight: '800' },
-  statLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500', position: 'absolute', bottom: 12, left: 16 },
+  statCard: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, gap: 10 },
+  statIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+  statTextContainer: { flex: 1 },
+  statNumber: { color: '#fff', fontSize: 24, fontWeight: '800', lineHeight: 28 },
+  statLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600', marginTop: 2 },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 20 },
   quickActionsCard: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 20, paddingHorizontal: 10, borderRadius: 24, marginBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },

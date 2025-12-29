@@ -5,23 +5,29 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
+import { useAlert } from '../../src/hooks/useAlert';
 
 export default function HospitalSettings() {
   const router = useRouter();
   const { colors, toggleTheme, isDark } = useTheme();
   const { user, logout } = useAuthStore();
+  const { showAlert } = useAlert();
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => { await logout(); router.replace('/(auth)/login'); }},
-    ]);
+    showAlert({
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      icon: 'log-out',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: async () => { await logout(); router.replace('/(auth)/login'); }},
+      ],
+    });
   };
 
   const initials = user?.fullName?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'H';

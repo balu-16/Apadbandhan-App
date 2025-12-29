@@ -119,11 +119,16 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const { newDevice } = get();
+      // Strip isActive from emergency contacts as backend doesn't expect it
+      const cleanedContacts = newDevice.emergencyContacts.map(({ name, relation, phone }) => ({
+        name,
+        relation,
+        phone,
+      }));
       const response = await devicesAPI.create({
         code: newDevice.code,
         name: newDevice.name,
-        emergencyContacts: newDevice.emergencyContacts,
-        insurance: newDevice.insurance,
+        emergencyContacts: cleanedContacts,
       });
       set((state) => ({
         devices: [...state.devices, response.data],

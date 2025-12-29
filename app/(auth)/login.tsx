@@ -7,7 +7,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, Link } from 'expo-router';
@@ -16,12 +15,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { authAPI } from '../../src/services/api';
+import { useAlert } from '../../src/hooks/useAlert';
 import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { setPhone } = useAuthStore();
+  const { showAlert } = useAlert();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,7 +42,7 @@ export default function LoginScreen() {
   const handleSendOtp = async () => {
     const cleanPhone = phoneNumber.replace(/\s/g, '');
     if (cleanPhone.length !== 10) {
-      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit phone number');
+      showAlert({ title: 'Invalid Phone', message: 'Please enter a valid 10-digit phone number', icon: 'alert-circle', buttons: [{ text: 'OK' }] });
       return;
     }
 
@@ -56,7 +57,7 @@ export default function LoginScreen() {
         const msg = error.response.data.message;
         message = Array.isArray(msg) ? msg.join(', ') : String(msg);
       }
-      Alert.alert('Error', message);
+      showAlert({ title: 'Error', message, icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     } finally {
       setIsLoading(false);
     }

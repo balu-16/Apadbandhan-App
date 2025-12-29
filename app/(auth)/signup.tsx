@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, Link } from 'expo-router';
@@ -17,12 +16,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { authAPI } from '../../src/services/api';
+import { useAlert } from '../../src/hooks/useAlert';
 import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants/theme';
 
 export default function SignupScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { setPhone } = useAuthStore();
+  const { showAlert } = useAlert();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -48,18 +49,18 @@ export default function SignupScreen() {
 
   const handleSendOtp = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Required', 'Please enter your full name');
+      showAlert({ title: 'Required', message: 'Please enter your full name', icon: 'alert-circle', buttons: [{ text: 'OK' }] });
       return;
     }
 
     if (!email.trim() || !validateEmail(email)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      showAlert({ title: 'Invalid Email', message: 'Please enter a valid email address', icon: 'alert-circle', buttons: [{ text: 'OK' }] });
       return;
     }
 
     const cleanPhone = phoneNumber.replace(/\s/g, '');
     if (cleanPhone.length !== 10) {
-      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit phone number');
+      showAlert({ title: 'Invalid Phone', message: 'Please enter a valid 10-digit phone number', icon: 'alert-circle', buttons: [{ text: 'OK' }] });
       return;
     }
 
@@ -77,7 +78,7 @@ export default function SignupScreen() {
         const msg = error.response.data.message;
         message = Array.isArray(msg) ? msg.join(', ') : String(msg);
       }
-      Alert.alert('Error', message);
+      showAlert({ title: 'Error', message, icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     } finally {
       setIsLoading(false);
     }

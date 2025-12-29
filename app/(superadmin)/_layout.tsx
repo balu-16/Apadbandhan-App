@@ -4,14 +4,18 @@ import { Tabs, useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
+import { Dimensions } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useProtectedRoute } from '../../src/hooks/useProtectedRoute';
 import { FontSize, FontWeight } from '../../src/constants/theme';
 
 const TAB_ROUTES = ['dashboard', 'users', 'admins', 'police', 'hospitals', 'devices', 'alerts', 'settings'];
-const SWIPE_THRESHOLD = 80;
+const SWIPE_THRESHOLD = 50;
+const SWIPE_VELOCITY_THRESHOLD = 400;
 
 export default function SuperAdminTabLayout() {
   const { colors } = useTheme();
@@ -35,26 +39,44 @@ export default function SuperAdminTabLayout() {
     } else if (direction === 'right' && currentIndex > 0) {
       router.push(`/(superadmin)/${TAB_ROUTES[currentIndex - 1]}` as any);
     }
+    translateX.value = 0;
   }, [getCurrentIndex, router]);
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-15, 15])
+    .activeOffsetX([-15, 15])
+    .failOffsetY([-10, 10])
     .onUpdate((e) => {
-      translateX.value = Math.max(-40, Math.min(40, e.translationX * 0.2));
+      const currentIndex = getCurrentIndex();
+      const isAtStart = currentIndex === 0 && e.translationX > 0;
+      const isAtEnd = currentIndex === TAB_ROUTES.length - 1 && e.translationX < 0;
+      const resistance = isAtStart || isAtEnd ? 0.15 : 0.5;
+      translateX.value = e.translationX * resistance;
     })
     .onEnd((e) => {
-      if (e.translationX < -SWIPE_THRESHOLD || e.velocityX < -500) {
-        runOnJS(navigateToRoute)('left');
-      } else if (e.translationX > SWIPE_THRESHOLD || e.velocityX > 500) {
-        runOnJS(navigateToRoute)('right');
+      const shouldNavigateLeft = e.translationX < -SWIPE_THRESHOLD || e.velocityX < -SWIPE_VELOCITY_THRESHOLD;
+      const shouldNavigateRight = e.translationX > SWIPE_THRESHOLD || e.velocityX > SWIPE_VELOCITY_THRESHOLD;
+      
+      if (shouldNavigateLeft) {
+        translateX.value = withTiming(-SCREEN_WIDTH * 0.3, { duration: 150, easing: Easing.out(Easing.ease) }, () => {
+          runOnJS(navigateToRoute)('left');
+        });
+      } else if (shouldNavigateRight) {
+        translateX.value = withTiming(SCREEN_WIDTH * 0.3, { duration: 150, easing: Easing.out(Easing.ease) }, () => {
+          runOnJS(navigateToRoute)('right');
+        });
+      } else {
+        translateX.value = withSpring(0, { damping: 25, stiffness: 300 });
       }
-      translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
     });
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const scale = 1 - Math.abs(translateX.value) / SCREEN_WIDTH * 0.05;
+    const opacity = 1 - Math.abs(translateX.value) / SCREEN_WIDTH * 0.2;
+    return {
+      transform: [{ translateX: translateX.value }, { scale }],
+      opacity,
+    };
+  });
 
   // Show loading while checking auth
   if (isLoading) {
@@ -88,20 +110,29 @@ export default function SuperAdminTabLayout() {
             tabBarLabelStyle: { fontSize: 9, fontWeight: '600', marginTop: -4 },
             tabBarStyle: {
               position: 'absolute',
-              bottom: 16,
+              bottom: 24,
               left: 12,
               right: 12,
               height: 70,
               backgroundColor: colors.surface,
-              borderRadius: 30,
+              borderRadius: 35,
               borderTopWidth: 0,
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.12,
+              shadowOpacity: 0.15,
               shadowRadius: 16,
               elevation: 10,
-              paddingBottom: 8,
-              paddingTop: 8,
+              paddingHorizontal: 5,
+              paddingTop: 0,
+              paddingBottom: 0,
+            },
+            tabBarItemStyle: {
+              flex: 1,
+              height: 70,
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingTop: 0,
+              paddingBottom: 0,
             },
           }}
         >
@@ -109,56 +140,88 @@ export default function SuperAdminTabLayout() {
             name="dashboard"
             options={{
               title: 'Home',
-              tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'grid' : 'grid-outline'} size={22} color={color} />,
+              tabBarIcon: ({ color, focused }) => (
+                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                  <Ionicons name={focused ? 'grid' : 'grid-outline'} size={20} color={focused ? '#6366f1' : color} />
+                </View>
+              ),
             }}
           />
           <Tabs.Screen
             name="users"
             options={{
               title: 'Users',
-              tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={color} />,
+              tabBarIcon: ({ color, focused }) => (
+                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                  <Ionicons name={focused ? 'people' : 'people-outline'} size={20} color={focused ? '#6366f1' : color} />
+                </View>
+              ),
             }}
           />
           <Tabs.Screen
             name="admins"
             options={{
               title: 'Admins',
-              tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'shield' : 'shield-outline'} size={22} color={color} />,
+              tabBarIcon: ({ color, focused }) => (
+                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                  <Ionicons name={focused ? 'shield' : 'shield-outline'} size={20} color={focused ? '#6366f1' : color} />
+                </View>
+              ),
             }}
           />
           <Tabs.Screen
             name="police"
             options={{
               title: 'Police',
-              tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'body' : 'body-outline'} size={22} color={color} />,
+              tabBarIcon: ({ color, focused }) => (
+                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                  <Ionicons name={focused ? 'body' : 'body-outline'} size={20} color={focused ? '#6366f1' : color} />
+                </View>
+              ),
             }}
           />
           <Tabs.Screen
             name="hospitals"
             options={{
               title: 'Hospital',
-              tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'medical' : 'medical-outline'} size={22} color={color} />,
+              tabBarIcon: ({ color, focused }) => (
+                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                  <Ionicons name={focused ? 'medical' : 'medical-outline'} size={20} color={focused ? '#6366f1' : color} />
+                </View>
+              ),
             }}
           />
           <Tabs.Screen
             name="devices"
             options={{
               title: 'Devices',
-              tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'hardware-chip' : 'hardware-chip-outline'} size={22} color={color} />,
+              tabBarIcon: ({ color, focused }) => (
+                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                  <Ionicons name={focused ? 'hardware-chip' : 'hardware-chip-outline'} size={20} color={focused ? '#6366f1' : color} />
+                </View>
+              ),
             }}
           />
           <Tabs.Screen
             name="alerts"
             options={{
               title: 'Alerts',
-              tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'warning' : 'warning-outline'} size={22} color={color} />,
+              tabBarIcon: ({ color, focused }) => (
+                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                  <Ionicons name={focused ? 'warning' : 'warning-outline'} size={20} color={focused ? '#6366f1' : color} />
+                </View>
+              ),
             }}
           />
           <Tabs.Screen
             name="settings"
             options={{
               title: 'Settings',
-              tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />,
+              tabBarIcon: ({ color, focused }) => (
+                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                  <Ionicons name={focused ? 'settings' : 'settings-outline'} size={20} color={focused ? '#6366f1' : color} />
+                </View>
+              ),
             }}
           />
         </Tabs>

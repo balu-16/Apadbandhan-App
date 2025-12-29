@@ -6,21 +6,26 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Switch,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useDeviceStore } from '../../src/store/deviceStore';
+import { useAlert } from '../../src/hooks/useAlert';
 import { devicesAPI } from '../../src/services/api';
+import { DeviceMapView } from '../../src/components/DeviceMapView';
 import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants/theme';
 
 export default function DevicesScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { showAlert } = useAlert();
   const { devices, fetchDevices, deleteDevice, isLoading } = useDeviceStore();
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<any>(null);
+  const [showMapModal, setShowMapModal] = useState(false);
 
   useEffect(() => {
     fetchDevices();
@@ -33,10 +38,11 @@ export default function DevicesScreen() {
   };
 
   const handleDeleteDevice = (id: string, name: string) => {
-    Alert.alert(
-      'Delete Device',
-      `Are you sure you want to delete "${name}"?`,
-      [
+    showAlert({
+      title: 'Delete Device',
+      message: `Are you sure you want to delete "${name}"?`,
+      icon: 'trash',
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -45,22 +51,32 @@ export default function DevicesScreen() {
             try {
               await deleteDevice(id);
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete device');
+              showAlert({ title: 'Error', message: 'Failed to delete device', icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleToggleStatus = async (deviceId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'online' ? 'offline' : 'online';
     try {
       await devicesAPI.updateStatus(deviceId, newStatus);
-      await fetchDevices(); // Refresh the list
+      await fetchDevices();
     } catch (error) {
-      Alert.alert('Error', 'Failed to update device status');
+      showAlert({ title: 'Error', message: 'Failed to update device status', icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     }
+  };
+
+  const handleTrackDevice = (device: any) => {
+    setSelectedDevice(device);
+    setShowMapModal(true);
+  };
+
+  const handleCloseMap = () => {
+    setShowMapModal(false);
+    setSelectedDevice(null);
   };
 
   return (
@@ -145,10 +161,11 @@ export default function DevicesScreen() {
                   <Text style={[styles.actionButtonText, { color: colors.primary }]}>Edit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.actionButton, { borderColor: colors.border }]}
+                  style={[styles.actionButton, { borderColor: colors.primary, backgroundColor: `${colors.primary}10` }]}
+                  onPress={() => handleTrackDevice(device)}
                 >
-                  <Ionicons name="location-outline" size={18} color={colors.text} />
-                  <Text style={[styles.actionButtonText, { color: colors.text }]}>Track</Text>
+                  <Ionicons name="location-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.actionButtonText, { color: colors.primary }]}>Track</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, { borderColor: colors.error }]}
@@ -162,6 +179,31 @@ export default function DevicesScreen() {
           ))
         )}
       </ScrollView>
+
+      {/* Map Modal */}
+      <Modal
+        visible={showMapModal}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleCloseMap}
+      >
+        {selectedDevice && (
+          <DeviceMapView
+            deviceId={selectedDevice._id}
+            deviceName={selectedDevice.name || 'Device'}
+            initialLocation={
+              selectedDevice.location?.latitude && selectedDevice.location?.longitude
+                ? {
+                    latitude: selectedDevice.location.latitude,
+                    longitude: selectedDevice.location.longitude,
+                  }
+                : undefined
+            }
+            isOnline={selectedDevice.status === 'online'}
+            onClose={handleCloseMap}
+          />
+        )}
+      </Modal>
     </View>
   );
 }

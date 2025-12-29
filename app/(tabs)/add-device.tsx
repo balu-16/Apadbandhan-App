@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Modal,
   Dimensions,
@@ -16,14 +15,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useDeviceStore } from '../../src/store/deviceStore';
 import { qrCodesAPI } from '../../src/services/api';
+import { useAlert } from '../../src/hooks/useAlert';
 import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const RELATIONSHIPS = ['Father', 'Mother', 'Spouse', 'Sibling', 'Friend', 'Other'];
+const RELATIONSHIPS = ['Father', 'Mother', 'Brother', 'Sister', 'Spouse', 'Son', 'Daughter', 'Friend', 'Other'];
 
 export default function AddDeviceScreen() {
   const { colors } = useTheme();
+  const { showAlert } = useAlert();
   const { newDevice, setNewDeviceCode, setNewDeviceName, addEmergencyContact, removeEmergencyContact, setInsurance, createDevice, resetNewDevice } = useDeviceStore();
   
   const [step, setStep] = useState(1);
@@ -50,7 +51,7 @@ export default function AddDeviceScreen() {
     if (!permission?.granted) {
       const result = await requestPermission();
       if (!result.granted) {
-        Alert.alert('Permission Required', 'Camera permission is required to scan QR codes.');
+        showAlert({ title: 'Permission Required', message: 'Camera permission is required to scan QR codes.', icon: 'camera', buttons: [{ text: 'OK' }] });
         return;
       }
     }
@@ -77,7 +78,7 @@ export default function AddDeviceScreen() {
         const msg = error.response.data.message;
         message = Array.isArray(msg) ? msg.join(', ') : String(msg);
       }
-      Alert.alert('Invalid Code', message);
+      showAlert({ title: 'Invalid Code', message, icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     } finally {
       setIsValidating(false);
     }
@@ -85,7 +86,7 @@ export default function AddDeviceScreen() {
 
   const handleValidateCode = async () => {
     if (!deviceCode.trim()) {
-      Alert.alert('Required', 'Please enter the device code');
+      showAlert({ title: 'Required', message: 'Please enter the device code', icon: 'alert-circle', buttons: [{ text: 'OK' }] });
       return;
     }
 
@@ -101,7 +102,7 @@ export default function AddDeviceScreen() {
         const msg = error.response.data.message;
         message = Array.isArray(msg) ? msg.join(', ') : String(msg);
       }
-      Alert.alert('Invalid Code', message);
+      showAlert({ title: 'Invalid Code', message, icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     } finally {
       setIsValidating(false);
     }
@@ -109,13 +110,13 @@ export default function AddDeviceScreen() {
 
   const handleAddContact = () => {
     if (!contactName.trim() || !contactRelation || !contactPhone.trim()) {
-      Alert.alert('Required', 'Please fill all contact fields');
+      showAlert({ title: 'Required', message: 'Please fill all contact fields', icon: 'alert-circle', buttons: [{ text: 'OK' }] });
       return;
     }
 
     const cleanPhone = contactPhone.replace(/\s/g, '');
     if (cleanPhone.length !== 10) {
-      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit phone number');
+      showAlert({ title: 'Invalid Phone', message: 'Please enter a valid 10-digit phone number', icon: 'alert-circle', buttons: [{ text: 'OK' }] });
       return;
     }
 
@@ -135,23 +136,24 @@ export default function AddDeviceScreen() {
     setIsRegistering(true);
     try {
       await createDevice();
-      Alert.alert(
-        'Success!',
-        'Your device has been registered successfully.',
-        [{ text: 'OK', onPress: () => {
+      showAlert({
+        title: 'Success!',
+        message: 'Your device has been registered successfully.',
+        icon: 'checkmark-circle',
+        buttons: [{ text: 'OK', onPress: () => {
           setStep(1);
           setDeviceCode('');
           setDeviceName('');
           resetNewDevice();
         }}]
-      );
+      });
     } catch (error: any) {
       let message = 'Failed to register device. Please try again.';
       if (error.response?.data?.message) {
         const msg = error.response.data.message;
         message = Array.isArray(msg) ? msg.join(', ') : String(msg);
       }
-      Alert.alert('Error', message);
+      showAlert({ title: 'Error', message, icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     } finally {
       setIsRegistering(false);
     }

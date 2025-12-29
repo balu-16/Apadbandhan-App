@@ -9,11 +9,13 @@ import {
   RefreshControl,
   ActivityIndicator,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import api from '../../src/services/api';
+import { DeviceMapView } from '../../src/components/DeviceMapView';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -27,6 +29,7 @@ interface Device {
   userName?: string;
   lastSeen?: string;
   createdAt: string;
+  location?: { latitude: number; longitude: number };
 }
 
 interface QRCode {
@@ -47,6 +50,18 @@ export default function DevicesManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'devices' | 'qrcodes'>('devices');
   const [stats, setStats] = useState({ total: 0, online: 0, offline: 0, available: 0, assigned: 0 });
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [showMapModal, setShowMapModal] = useState(false);
+
+  const handleTrackDevice = (device: Device) => {
+    setSelectedDevice(device);
+    setShowMapModal(true);
+  };
+
+  const handleCloseMap = () => {
+    setShowMapModal(false);
+    setSelectedDevice(null);
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -128,7 +143,12 @@ export default function DevicesManagement() {
           )}
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+      <TouchableOpacity
+        style={[styles.trackButton, { backgroundColor: colors.primary }]}
+        onPress={() => handleTrackDevice(item)}
+      >
+        <Ionicons name="location" size={16} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 
@@ -246,19 +266,41 @@ export default function DevicesManagement() {
           }
         />
       )}
+
+      {/* Map Modal */}
+      <Modal
+        visible={showMapModal}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleCloseMap}
+      >
+        {selectedDevice && (
+          <DeviceMapView
+            deviceId={selectedDevice._id}
+            deviceName={selectedDevice.name || 'Device'}
+            initialLocation={
+              selectedDevice.location?.latitude && selectedDevice.location?.longitude
+                ? { latitude: selectedDevice.location.latitude, longitude: selectedDevice.location.longitude }
+                : undefined
+            }
+            isOnline={selectedDevice.status === 'online'}
+            onClose={handleCloseMap}
+          />
+        )}
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20 },
+  header: { paddingTop: 50, paddingBottom: 30, paddingHorizontal: 20 },
   headerTitle: { color: '#fff', fontSize: 24, fontWeight: '800', marginBottom: 16 },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   statItem: { alignItems: 'center' },
   statValue: { color: '#fff', fontSize: 22, fontWeight: '800' },
   statLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
-  tabsContainer: { flexDirection: 'row', paddingHorizontal: 16, marginTop: -10, gap: 10 },
+  tabsContainer: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 16, gap: 10 },
   tab: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.05)', alignItems: 'center' },
   tabText: { fontSize: 14, fontWeight: '600' },
   searchContainer: { paddingHorizontal: 16, marginTop: 12 },
@@ -279,4 +321,5 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 11 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
   emptyText: { fontSize: 16, marginTop: 12 },
+  trackButton: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
 });

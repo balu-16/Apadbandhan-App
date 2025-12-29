@@ -7,10 +7,13 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
+  TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { adminAPI } from '../../src/services/api';
+import { DeviceMapView } from '../../src/components/DeviceMapView';
 import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants/theme';
 
 interface Device {
@@ -19,6 +22,7 @@ interface Device {
   code: string;
   status: 'online' | 'offline';
   userId?: { fullName: string };
+  location?: { latitude: number; longitude: number };
 }
 
 export default function AllDevices() {
@@ -27,6 +31,18 @@ export default function AllDevices() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [showMapModal, setShowMapModal] = useState(false);
+
+  const handleTrackDevice = (device: Device) => {
+    setSelectedDevice(device);
+    setShowMapModal(true);
+  };
+
+  const handleCloseMap = () => {
+    setShowMapModal(false);
+    setSelectedDevice(null);
+  };
 
   useEffect(() => {
     fetchDevices();
@@ -103,8 +119,17 @@ export default function AllDevices() {
                 </Text>
               )}
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: item.status === 'online' ? '#10b981' : colors.textTertiary }]}>
-              <Text style={styles.statusText}>{item.status}</Text>
+            <View style={styles.actionsContainer}>
+              <TouchableOpacity
+                style={[styles.trackButton, { backgroundColor: colors.primary }]}
+                onPress={() => handleTrackDevice(item)}
+              >
+                <Ionicons name="location" size={16} color="#fff" />
+                <Text style={styles.trackButtonText}>Track</Text>
+              </TouchableOpacity>
+              <View style={[styles.statusBadge, { backgroundColor: item.status === 'online' ? '#10b981' : colors.textTertiary }]}>
+                <Text style={styles.statusText}>{item.status}</Text>
+              </View>
             </View>
           </View>
         )}
@@ -116,6 +141,28 @@ export default function AllDevices() {
           </View>
         }
       />
+
+      {/* Map Modal */}
+      <Modal
+        visible={showMapModal}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleCloseMap}
+      >
+        {selectedDevice && (
+          <DeviceMapView
+            deviceId={selectedDevice._id}
+            deviceName={selectedDevice.name || 'Device'}
+            initialLocation={
+              selectedDevice.location?.latitude && selectedDevice.location?.longitude
+                ? { latitude: selectedDevice.location.latitude, longitude: selectedDevice.location.longitude }
+                : undefined
+            }
+            isOnline={selectedDevice.status === 'online'}
+            onClose={handleCloseMap}
+          />
+        )}
+      </Modal>
     </View>
   );
 }
@@ -135,6 +182,9 @@ const styles = StyleSheet.create({
   deviceName: { fontSize: FontSize.md, fontWeight: FontWeight.bold },
   deviceCode: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, marginTop: 2 },
   deviceOwner: { fontSize: FontSize.xs, fontWeight: FontWeight.medium, marginTop: 2 },
+  actionsContainer: { alignItems: 'flex-end', gap: 8 },
+  trackButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: BorderRadius.sm, gap: 4 },
+  trackButtonText: { color: '#fff', fontSize: FontSize.xs, fontWeight: FontWeight.bold },
   statusBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: BorderRadius.sm },
   statusText: { color: '#ffffff', fontSize: FontSize.xs, fontWeight: FontWeight.bold, textTransform: 'uppercase' },
   emptyContainer: { alignItems: 'center', paddingVertical: Spacing['5xl'] },

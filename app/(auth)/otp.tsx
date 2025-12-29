@@ -7,7 +7,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -16,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { authAPI, UserProfile } from '../../src/services/api';
+import { useAlert } from '../../src/hooks/useAlert';
 import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants/theme';
 
 export default function OtpScreen() {
@@ -27,6 +27,7 @@ export default function OtpScreen() {
   }>();
   const { colors } = useTheme();
   const { phone, login } = useAuthStore();
+  const { showAlert } = useAlert();
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
@@ -88,7 +89,7 @@ export default function OtpScreen() {
   const handleVerifyOtp = async () => {
     const otpString = otp.join('');
     if (otpString.length !== 6) {
-      Alert.alert('Invalid OTP', 'Please enter the complete 6-digit OTP');
+      showAlert({ title: 'Invalid OTP', message: 'Please enter the complete 6-digit OTP', icon: 'alert-circle', buttons: [{ text: 'OK' }] });
       return;
     }
 
@@ -118,7 +119,7 @@ export default function OtpScreen() {
         const msg = error.response.data.message;
         message = Array.isArray(msg) ? msg.join(', ') : String(msg);
       }
-      Alert.alert('Error', message);
+      showAlert({ title: 'Error', message, icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     } finally {
       setIsLoading(false);
     }
@@ -130,9 +131,9 @@ export default function OtpScreen() {
     try {
       await authAPI.sendOtp(phone);
       setResendTimer(30);
-      Alert.alert('OTP Sent', 'A new OTP has been sent to your phone');
+      showAlert({ title: 'OTP Sent', message: 'A new OTP has been sent to your phone', icon: 'checkmark-circle', buttons: [{ text: 'OK' }] });
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to resend OTP');
+      showAlert({ title: 'Error', message: 'Failed to resend OTP', icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     }
   };
 

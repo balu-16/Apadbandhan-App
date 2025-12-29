@@ -7,21 +7,21 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { usersAPI } from '../../src/services/api';
+import { useAlert } from '../../src/hooks/useAlert';
 import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { colors, toggleTheme, isDark, setColorScheme } = useTheme();
   const { user, logout, refreshProfile } = useAuthStore();
+  const { showAlert } = useAlert();
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,14 +51,14 @@ export default function SettingsScreen() {
     try {
       await usersAPI.updateProfile(user.id, { fullName, email });
       await refreshProfile();
-      Alert.alert('Success', 'Profile updated successfully');
+      showAlert({ title: 'Success', message: 'Profile updated successfully', icon: 'checkmark-circle', buttons: [{ text: 'OK', style: 'default' }] });
     } catch (error: any) {
       let message = 'Failed to update profile';
       if (error.response?.data?.message) {
         const msg = error.response.data.message;
         message = Array.isArray(msg) ? msg.join(', ') : String(msg);
       }
-      Alert.alert('Error', message);
+      showAlert({ title: 'Error', message, icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     } finally {
       setIsSaving(false);
     }
@@ -68,9 +68,9 @@ export default function SettingsScreen() {
     if (!user?.id) return;
     try {
       await usersAPI.updateProfile(user.id, { hospitalPreference });
-      Alert.alert('Success', 'Hospital preference saved');
+      showAlert({ title: 'Success', message: 'Hospital preference saved', icon: 'checkmark-circle', buttons: [{ text: 'OK', style: 'default' }] });
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to save hospital preference');
+      showAlert({ title: 'Error', message: 'Failed to save hospital preference', icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     }
   };
 
@@ -78,17 +78,22 @@ export default function SettingsScreen() {
     if (!user?.id) return;
     try {
       await usersAPI.updateProfile(user.id, { accidentAlerts, smsNotifications, locationTracking });
-      Alert.alert('Success', 'Notification settings saved');
+      showAlert({ title: 'Success', message: 'Notification settings saved', icon: 'checkmark-circle', buttons: [{ text: 'OK', style: 'default' }] });
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to save notification settings');
+      showAlert({ title: 'Error', message: 'Failed to save notification settings', icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     }
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => { await logout(); router.replace('/(auth)/login'); }},
-    ]);
+    showAlert({
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      icon: 'log-out',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: async () => { await logout(); router.replace('/(auth)/login'); }},
+      ],
+    });
   };
 
   const handleDeleteAccount = async () => {
@@ -103,7 +108,7 @@ export default function SettingsScreen() {
         const msg = error.response.data.message;
         message = Array.isArray(msg) ? msg.join(', ') : String(msg);
       }
-      Alert.alert('Error', message);
+      showAlert({ title: 'Error', message, icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
     }
   };
 

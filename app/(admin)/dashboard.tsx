@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,27 +15,20 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { adminAPI } from '../../src/services/api';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 interface Stats {
   totalUsers: number;
   totalDevices: number;
   onlineDevices: number;
   offlineDevices: number;
-  totalAdmins?: number;
-  totalPolice?: number;
-  totalHospitals?: number;
 }
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { user } = useAuthStore();
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const isSuperAdmin = user?.role === 'superadmin';
 
   useEffect(() => {
     fetchStats();
@@ -59,6 +51,16 @@ export default function AdminDashboard() {
     setRefreshing(false);
   };
 
+  const fullName = user?.fullName || 'Admin';
+  const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  const quickActions = [
+    { icon: 'people-outline', label: 'USERS', route: '/(admin)/users', color: '#6366f1' },
+    { icon: 'hardware-chip-outline', label: 'DEVICES', route: '/(admin)/devices', color: '#10b981' },
+    { icon: 'warning-outline', label: 'ALERTS', route: '/(admin)/alerts', color: '#ef4444' },
+    { icon: 'settings-outline', label: 'SETTINGS', route: '/(admin)/settings', color: '#8b5cf6' },
+  ];
+
   if (isLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -69,101 +71,124 @@ export default function AdminDashboard() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <View>
-          <Text style={[styles.title, { color: colors.text }]}>Dashboard</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Welcome back, {user?.fullName}
-          </Text>
+      <LinearGradient
+        colors={isDark ? ['#312e81', '#1e1b4b'] : ['#6366f1', '#8b5cf6']}
+        style={styles.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.headerTop}>
+            <View style={styles.userInfo}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
+              <View>
+                <Text style={styles.welcomeText}>WELCOME BACK</Text>
+                <Text style={styles.userName}>{fullName}</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.notificationBtn}>
+              <Ionicons name="notifications-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.statsRow}>
+            <View style={[styles.statCard, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+              <View style={styles.statIcon}>
+                <Ionicons name="people-outline" size={24} color="#fff" />
+              </View>
+              <View style={styles.statTextContainer}>
+                <Text style={styles.statNumber}>{stats?.totalUsers || 0}</Text>
+                <Text style={styles.statLabel}>Users</Text>
+              </View>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: 'rgba(16,185,129,0.3)' }]}>
+              <View style={[styles.statIcon, { backgroundColor: 'rgba(16,185,129,0.5)' }]}>
+                <Ionicons name="hardware-chip-outline" size={24} color="#fff" />
+              </View>
+              <View style={styles.statTextContainer}>
+                <Text style={styles.statNumber}>{stats?.totalDevices || 0}</Text>
+                <Text style={styles.statLabel}>Devices</Text>
+              </View>
+            </View>
+          </View>
         </View>
-        <View style={[styles.roleBadge, { backgroundColor: 'rgba(99,102,241,0.1)' }]}>
-          <Ionicons name="shield" size={14} color={colors.primary} />
-          <Text style={[styles.roleText, { color: colors.primary }]}>Admin</Text>
-        </View>
-      </View>
+      </LinearGradient>
+
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-
-      <View style={styles.statsGrid}>
-        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.statIcon, { backgroundColor: colors.primaryLight }]}>
-            <Ionicons name="people" size={24} color={colors.primary} />
-          </View>
-          <Text style={[styles.statValue, { color: colors.text }]}>{stats?.totalUsers || 0}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Users</Text>
+        <View style={[styles.quickActionsCard, { backgroundColor: colors.surface }]}>
+          {quickActions.map((action, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.quickActionItem}
+              onPress={() => router.push(action.route as any)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}15` }]}>
+                <Ionicons name={action.icon as any} size={26} color={action.color} />
+              </View>
+              <Text style={[styles.quickActionLabel, { color: colors.textSecondary }]}>{action.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.statIcon, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-            <Ionicons name="hardware-chip" size={24} color="#3b82f6" />
-          </View>
-          <Text style={[styles.statValue, { color: colors.text }]}>{stats?.totalDevices || 0}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Devices</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Overview</Text>
         </View>
 
-        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.statIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-            <Ionicons name="pulse" size={24} color="#10b981" />
-          </View>
-          <Text style={[styles.statValue, { color: colors.text }]}>{stats?.onlineDevices || 0}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Online</Text>
-        </View>
-
-        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.statIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-            <Ionicons name="cloud-offline" size={24} color="#ef4444" />
-          </View>
-          <Text style={[styles.statValue, { color: colors.text }]}>{stats?.offlineDevices || 0}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Offline</Text>
-        </View>
-      </View>
-
-      {isSuperAdmin && (
-        <>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Staff Overview</Text>
-          <View style={styles.staffGrid}>
-            <View style={[styles.staffCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Ionicons name="shield" size={28} color={colors.primary} />
-              <Text style={[styles.staffValue, { color: colors.text }]}>{stats?.totalAdmins || 0}</Text>
-              <Text style={[styles.staffLabel, { color: colors.textSecondary }]}>Admins</Text>
+        <View style={styles.overviewGrid}>
+          <TouchableOpacity
+            style={[styles.overviewCard, { backgroundColor: colors.surface }]}
+            onPress={() => router.push('/(admin)/users')}
+          >
+            <View style={[styles.overviewIcon, { backgroundColor: '#6366f115' }]}>
+              <Ionicons name="people" size={24} color="#6366f1" />
             </View>
-            <View style={[styles.staffCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Ionicons name="car" size={28} color="#3b82f6" />
-              <Text style={[styles.staffValue, { color: colors.text }]}>{stats?.totalPolice || 0}</Text>
-              <Text style={[styles.staffLabel, { color: colors.textSecondary }]}>Police</Text>
+            <View style={styles.overviewInfo}>
+              <Text style={[styles.overviewValue, { color: colors.text }]}>{stats?.totalUsers || 0}</Text>
+              <Text style={[styles.overviewLabel, { color: colors.textSecondary }]}>Users</Text>
             </View>
-            <View style={[styles.staffCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Ionicons name="medical" size={28} color="#ef4444" />
-              <Text style={[styles.staffValue, { color: colors.text }]}>{stats?.totalHospitals || 0}</Text>
-              <Text style={[styles.staffLabel, { color: colors.textSecondary }]}>Hospitals</Text>
-            </View>
-          </View>
-        </>
-      )}
+            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
 
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
-      <View style={styles.actionsGrid}>
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={() => router.push('/users' as any)}
-        >
-          <Ionicons name="people-outline" size={32} color={colors.primary} />
-          <Text style={[styles.actionTitle, { color: colors.text }]}>Manage Users</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={() => router.push('/devices' as any)}
-        >
-          <Ionicons name="hardware-chip-outline" size={32} color="#3b82f6" />
-          <Text style={[styles.actionTitle, { color: colors.text }]}>All Devices</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={{ height: 100 }} />
+          <TouchableOpacity
+            style={[styles.overviewCard, { backgroundColor: colors.surface }]}
+            onPress={() => router.push('/(admin)/devices')}
+          >
+            <View style={[styles.overviewIcon, { backgroundColor: '#10b98115' }]}>
+              <Ionicons name="pulse" size={24} color="#10b981" />
+            </View>
+            <View style={styles.overviewInfo}>
+              <Text style={[styles.overviewValue, { color: colors.text }]}>{stats?.onlineDevices || 0}</Text>
+              <Text style={[styles.overviewLabel, { color: colors.textSecondary }]}>Online Devices</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.overviewCard, { backgroundColor: colors.surface }]}
+            onPress={() => router.push('/(admin)/alerts')}
+          >
+            <View style={[styles.overviewIcon, { backgroundColor: '#ef444415' }]}>
+              <Ionicons name="warning" size={24} color="#ef4444" />
+            </View>
+            <View style={styles.overviewInfo}>
+              <Text style={[styles.overviewValue, { color: colors.text }]}>{stats?.offlineDevices || 0}</Text>
+              <Text style={[styles.overviewLabel, { color: colors.textSecondary }]}>Offline Devices</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ height: 120 }} />
       </ScrollView>
     </View>
   );
@@ -171,25 +196,34 @@ export default function AdminDashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 60, paddingBottom: 16, paddingHorizontal: 20, borderBottomWidth: 1 },
-  title: { fontSize: 28, fontWeight: '800' },
-  subtitle: { fontSize: 14, fontWeight: '500', marginTop: 4 },
-  roleBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  roleText: { fontSize: 12, fontWeight: '700' },
-  scrollView: { flex: 1 },
-  contentContainer: { padding: 20, paddingBottom: 100 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 28 },
-  statCard: { width: (SCREEN_WIDTH - 52) / 2, padding: 18, borderRadius: 20, alignItems: 'center' },
-  statIcon: { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  statValue: { fontSize: 26, fontWeight: '800' },
-  statLabel: { fontSize: 12, fontWeight: '600', marginTop: 4 },
-  sectionTitle: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
-  staffGrid: { flexDirection: 'row', gap: 12, marginBottom: 28 },
-  staffCard: { flex: 1, padding: 18, borderRadius: 20, alignItems: 'center' },
-  staffValue: { fontSize: 22, fontWeight: '800', marginTop: 10 },
-  staffLabel: { fontSize: 12, fontWeight: '600', marginTop: 4 },
-  actionsGrid: { flexDirection: 'row', gap: 12 },
-  actionCard: { flex: 1, padding: 20, borderRadius: 20, alignItems: 'center', gap: 10 },
-  actionTitle: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
+  headerGradient: { paddingTop: 50, paddingBottom: 24, paddingHorizontal: 20 },
+  headerContent: { gap: 20 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  userInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  welcomeText: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600', letterSpacing: 1 },
+  userName: { color: '#fff', fontSize: 20, fontWeight: '700', marginTop: 2 },
+  notificationBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
+  statsRow: { flexDirection: 'row', gap: 12 },
+  statCard: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, gap: 10 },
+  statIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+  statTextContainer: { flex: 1 },
+  statNumber: { color: '#fff', fontSize: 24, fontWeight: '800' },
+  statLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '500', marginTop: 2 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 20 },
+  quickActionsCard: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 20, paddingHorizontal: 10, borderRadius: 24, marginBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+  quickActionItem: { alignItems: 'center', gap: 8 },
+  quickActionIcon: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  quickActionLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  sectionTitle: { fontSize: 18, fontWeight: '700' },
+  overviewGrid: { gap: 12 },
+  overviewCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  overviewIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  overviewInfo: { flex: 1, marginLeft: 14 },
+  overviewValue: { fontSize: 20, fontWeight: '700' },
+  overviewLabel: { fontSize: 13, fontWeight: '500', marginTop: 2 },
 });

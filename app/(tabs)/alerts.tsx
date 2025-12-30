@@ -9,30 +9,38 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
-import { alertsAPI } from '../../src/services/api';
+import { sosAPI } from '../../src/services/api';
+
+interface SosEvent {
+  _id: string;
+  status: string;
+  victimLocation?: {
+    coordinates: [number, number];
+  };
+  createdAt: string;
+  resolvedAt?: string;
+}
 
 interface AlertItem {
   _id: string;
   type: string;
-  severity: string;
+  source: 'sos' | 'alert';
   status: string;
-  deviceId: string;
-  userId?: string;
-  userName?: string;
+  severity: string;
   location?: {
     latitude: number;
     longitude: number;
     address?: string;
   };
   createdAt: string;
+  resolvedAt?: string;
 }
 
-export default function AdminAlertsScreen() {
+export default function UserAlertsScreen() {
   const { colors, isDark } = useTheme();
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [filteredAlerts, setFilteredAlerts] = useState<AlertItem[]>([]);
@@ -44,12 +52,31 @@ export default function AdminAlertsScreen() {
 
   const fetchAlerts = useCallback(async () => {
     try {
-      const response = await alertsAPI.getAll({ limit: 100 });
-      const alertData = response.data || [];
-      setAlerts(alertData);
-      setFilteredAlerts(alertData);
+      const sosResponse = await sosAPI.getHistory();
+      const sosEvents: SosEvent[] = Array.isArray(sosResponse.data) ? sosResponse.data : [];
+      
+      const userAlerts: AlertItem[] = sosEvents.map((sos) => ({
+        _id: sos._id,
+        type: 'SOS',
+        source: 'sos' as const,
+        status: sos.status,
+        severity: 'critical',
+        location: sos.victimLocation ? {
+          latitude: sos.victimLocation.coordinates[1],
+          longitude: sos.victimLocation.coordinates[0],
+        } : undefined,
+        createdAt: sos.createdAt,
+        resolvedAt: sos.resolvedAt,
+      }));
+
+      userAlerts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      setAlerts(userAlerts);
+      setFilteredAlerts(userAlerts);
     } catch (error) {
-      console.error('Failed to fetch alerts:', error);
+      console.error('Failed to fetch user alerts:', error);
+      setAlerts([]);
+      setFilteredAlerts([]);
     } finally {
       setIsLoading(false);
     }
@@ -69,8 +96,7 @@ export default function AdminAlertsScreen() {
       filtered = filtered.filter(
         (a) =>
           a.type?.toLowerCase().includes(query) ||
-          a.userName?.toLowerCase().includes(query) ||
-          a.location?.address?.toLowerCase().includes(query)
+          a.status?.toLowerCase().includes(query)
       );
     }
     setFilteredAlerts(filtered);
@@ -82,34 +108,9 @@ export default function AdminAlertsScreen() {
     setRefreshing(false);
   };
 
-  const handleUpdateStatus = async (alertId: string, newStatus: string) => {
-    try {
-      await alertsAPI.updateStatus(alertId, { status: newStatus });
-      setAlerts((prev) =>
-        prev.map((a) => (a._id === alertId ? { ...a, status: newStatus } : a))
-      );
-      setSelectedAlert(null);
-      Alert.alert('Success', 'Alert status updated');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update alert status');
-    }
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  };
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity?.toLowerCase()) {
-      case 'high':
-      case 'critical':
-        return '#ef4444';
-      case 'medium':
-        return '#f59e0b';
-      default:
-        return '#3b82f6';
-    }
   };
 
   const getStatusColor = (status: string) => {
@@ -120,11 +121,11 @@ export default function AdminAlertsScreen() {
       case 'active':
         return '#f59e0b';
       default:
-        return '#6b7280';
+        return '#ef4444';
     }
   };
 
-  const pendingCount = alerts.filter((a) => ['pending', 'active', 'new'].includes(a.status)).length;
+  const pendingCount = alerts.filter((a) => a.status !== 'resolved').length;
   const resolvedCount = alerts.filter((a) => a.status === 'resolved').length;
 
   const renderAlert = ({ item }: { item: AlertItem }) => (
@@ -133,31 +134,29 @@ export default function AdminAlertsScreen() {
       onPress={() => setSelectedAlert(item)}
       activeOpacity={0.7}
     >
-      <View style={[styles.severityBar, { backgroundColor: getSeverityColor(item.severity) }]} />
+      <View style={[styles.severityBar, { backgroundColor: item.status === 'resolved' ? '#10b981' : '#9333ea' }]} />
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
-          <View style={styles.alertIcon}>
-            <Ionicons name="warning" size={20} color={getSeverityColor(item.severity)} />
+          <View style={[styles.alertIcon, { backgroundColor: item.status === 'resolved' ? '#10b98120' : '#9333ea20' }]}>
+            <Ionicons 
+              name={item.status === 'resolved' ? 'checkmark-circle' : 'alert-circle'} 
+              size={20} 
+              color={item.status === 'resolved' ? '#10b981' : '#9333ea'} 
+            />
           </View>
           <View style={styles.headerInfo}>
-            <Text style={[styles.alertType, { color: colors.text }]}>{item.type || 'Emergency Alert'}</Text>
+            <Text style={[styles.alertType, { color: colors.text }]}>{item.type || 'SOS Alert'}</Text>
             <Text style={[styles.alertTime, { color: colors.textTertiary }]}>{formatDate(item.createdAt)}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(item.status)}20` }]}>
             <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status}</Text>
           </View>
         </View>
-        {item.userName && (
-          <View style={styles.userRow}>
-            <Ionicons name="person" size={14} color={colors.textSecondary} />
-            <Text style={[styles.userName, { color: colors.textSecondary }]}>{item.userName}</Text>
-          </View>
-        )}
-        {item.location?.address && (
+        {item.location && (
           <View style={styles.locationRow}>
             <Ionicons name="location" size={14} color={colors.textSecondary} />
             <Text style={[styles.locationText, { color: colors.textSecondary }]} numberOfLines={1}>
-              {item.location.address}
+              {item.location.address || `${item.location.latitude?.toFixed(4)}, ${item.location.longitude?.toFixed(4)}`}
             </Text>
           </View>
         )}
@@ -167,8 +166,9 @@ export default function AdminAlertsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient colors={isDark ? ['#0f1729', '#16213e'] : ['#f59e0b', '#d97706']} style={styles.header}>
-        <Text style={styles.headerTitle}>Alerts</Text>
+      <LinearGradient colors={isDark ? ['#0f1729', '#16213e'] : ['#9333ea', '#7c3aed']} style={styles.header}>
+        <Text style={styles.headerTitle}>My Alerts</Text>
+        <Text style={styles.headerSubtitle}>View all SOS alerts you have raised</Text>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{alerts.length}</Text>
@@ -186,7 +186,7 @@ export default function AdminAlertsScreen() {
       </LinearGradient>
 
       <View style={styles.filtersContainer}>
-        {['all', 'pending', 'active', 'resolved'].map((status) => (
+        {['all', 'pending', 'resolved'].map((status) => (
           <TouchableOpacity
             key={status}
             style={[styles.filterChip, filterStatus === status && { backgroundColor: colors.primary }]}
@@ -226,8 +226,11 @@ export default function AdminAlertsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="checkmark-circle-outline" size={64} color={colors.textTertiary} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No alerts found</Text>
+              <Ionicons name="notifications-off-outline" size={64} color={colors.textTertiary} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No Alerts Found</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                You haven't raised any SOS alerts yet
+              </Text>
             </View>
           }
         />
@@ -246,44 +249,40 @@ export default function AdminAlertsScreen() {
               <>
                 <View style={styles.detailRow}>
                   <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Type</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]}>{selectedAlert.type}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Severity</Text>
-                  <Text style={[styles.detailValue, { color: getSeverityColor(selectedAlert.severity) }]}>
-                    {selectedAlert.severity}
-                  </Text>
+                  <View style={[styles.typeBadge, { backgroundColor: '#9333ea20' }]}>
+                    <Text style={[styles.typeBadgeText, { color: '#9333ea' }]}>SOS</Text>
+                  </View>
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Status</Text>
-                  <Text style={[styles.detailValue, { color: getStatusColor(selectedAlert.status) }]}>
-                    {selectedAlert.status}
-                  </Text>
+                  <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(selectedAlert.status)}20` }]}>
+                    <Text style={[styles.statusText, { color: getStatusColor(selectedAlert.status) }]}>
+                      {selectedAlert.status}
+                    </Text>
+                  </View>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Time</Text>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Created</Text>
                   <Text style={[styles.detailValue, { color: colors.text }]}>{formatDate(selectedAlert.createdAt)}</Text>
                 </View>
-                {selectedAlert.location?.address && (
+                {selectedAlert.resolvedAt && (
                   <View style={styles.detailRow}>
-                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Location</Text>
-                    <Text style={[styles.detailValue, { color: colors.text }]}>{selectedAlert.location.address}</Text>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Resolved</Text>
+                    <Text style={[styles.detailValue, { color: colors.text }]}>{formatDate(selectedAlert.resolvedAt)}</Text>
                   </View>
                 )}
-                <Text style={[styles.updateLabel, { color: colors.textSecondary }]}>Update Status</Text>
-                <View style={styles.statusButtons}>
-                  {['pending', 'active', 'resolved'].map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={[styles.statusBtn, { backgroundColor: `${getStatusColor(status)}20` }]}
-                      onPress={() => handleUpdateStatus(selectedAlert._id, status)}
-                    >
-                      <Text style={[styles.statusBtnText, { color: getStatusColor(status) }]}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                {selectedAlert.location && (
+                  <View style={styles.locationDetail}>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Location</Text>
+                    <View style={styles.locationInfo}>
+                      <Ionicons name="location" size={16} color={colors.textSecondary} />
+                      <Text style={[styles.locationDetailText, { color: colors.text }]}>
+                        {selectedAlert.location.address || 
+                          `${selectedAlert.location.latitude?.toFixed(6)}, ${selectedAlert.location.longitude?.toFixed(6)}`}
                       </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                    </View>
+                  </View>
+                )}
               </>
             )}
           </View>
@@ -295,8 +294,9 @@ export default function AdminAlertsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20 },
-  headerTitle: { color: '#fff', fontSize: 24, fontWeight: '800', marginBottom: 16 },
+  header: { paddingTop: 60, paddingBottom: 24, paddingHorizontal: 20 },
+  headerTitle: { color: '#fff', fontSize: 28, fontWeight: '800', marginBottom: 4 },
+  headerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginBottom: 16 },
   statsRow: { flexDirection: 'row', gap: 30 },
   statItem: { alignItems: 'center' },
   statValue: { color: '#fff', fontSize: 24, fontWeight: '800' },
@@ -308,32 +308,32 @@ const styles = StyleSheet.create({
   searchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, gap: 12 },
   searchInput: { flex: 1, fontSize: 15, fontWeight: '500' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { padding: 16, paddingBottom: 100 },
+  listContent: { padding: 16, paddingBottom: 120 },
   card: { borderRadius: 16, marginBottom: 12, overflow: 'hidden', elevation: 2, flexDirection: 'row' },
   severityBar: { width: 4 },
   cardContent: { flex: 1, padding: 14 },
   cardHeader: { flexDirection: 'row', alignItems: 'center' },
-  alertIcon: { marginRight: 10 },
+  alertIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   headerInfo: { flex: 1 },
-  alertType: { fontSize: 15, fontWeight: '700' },
+  alertType: { fontSize: 16, fontWeight: '700' },
   alertTime: { fontSize: 12, marginTop: 2 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   statusText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
-  userRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  userName: { fontSize: 13 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  locationText: { fontSize: 12, flex: 1 },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
-  emptyText: { fontSize: 16, marginTop: 12 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  locationText: { fontSize: 13, flex: 1 },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginTop: 16 },
+  emptyText: { fontSize: 14, marginTop: 4, textAlign: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '700' },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
   detailLabel: { fontSize: 14 },
   detailValue: { fontSize: 14, fontWeight: '600' },
-  updateLabel: { fontSize: 14, marginTop: 20, marginBottom: 12 },
-  statusButtons: { flexDirection: 'row', gap: 10 },
-  statusBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  statusBtnText: { fontSize: 14, fontWeight: '600' },
+  typeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  typeBadgeText: { fontSize: 12, fontWeight: '600' },
+  locationDetail: { marginTop: 16 },
+  locationInfo: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 8 },
+  locationDetailText: { flex: 1, fontSize: 14, lineHeight: 20 },
 });

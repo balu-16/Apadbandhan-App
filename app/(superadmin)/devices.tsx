@@ -70,6 +70,29 @@ export default function DevicesManagement() {
   const [selectedQRCode, setSelectedQRCode] = useState<QRCode | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generateCount, setGenerateCount] = useState('10');
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerateQRCodes = async () => {
+    const count = parseInt(generateCount);
+    if (isNaN(count) || count < 1 || count > 100) {
+      alert('Please enter a number between 1 and 100');
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      await api.post('/qrcodes/generate', { count });
+      setShowGenerateModal(false);
+      setGenerateCount('10');
+      fetchData();
+      alert(`Successfully generated ${count} QR codes`);
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to generate QR codes');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleTrackDevice = (device: Device) => {
     setSelectedDevice(device);
@@ -226,8 +249,14 @@ export default function DevicesManagement() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient colors={isDark ? ['#1a1a2e', '#16213e'] : ['#10b981', '#059669']} style={styles.header}>
-        <Text style={styles.headerTitle}>Device Management</Text>
+      <LinearGradient colors={isDark ? ['#0f1729', '#16213e'] : ['#10b981', '#059669']} style={styles.header}>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Device Management</Text>
+          <TouchableOpacity style={styles.generateButton} onPress={() => setShowGenerateModal(true)}>
+            <Ionicons name="add" size={18} color="#10b981" />
+            <Text style={styles.generateButtonText}>Generate</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{stats.total}</Text>
@@ -499,7 +528,7 @@ export default function DevicesManagement() {
                     <Ionicons name="location" size={20} color={colors.primary} />
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <Text style={[styles.locationCoords, { color: colors.text }]}>
-                        {selectedDevice.location.latitude.toFixed(6)}, {selectedDevice.location.longitude.toFixed(6)}
+                        {selectedDevice.location.latitude?.toFixed(6) ?? 'N/A'}, {selectedDevice.location.longitude?.toFixed(6) ?? 'N/A'}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -527,14 +556,62 @@ export default function DevicesManagement() {
           </View>
         </View>
       </Modal>
+
+      {/* Generate QR Codes Modal */}
+      <Modal
+        visible={showGenerateModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowGenerateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.generateModalContent, { backgroundColor: colors.background }]}>
+            <Text style={[styles.generateModalTitle, { color: colors.text }]}>Generate QR Codes</Text>
+            <Text style={[styles.generateModalDesc, { color: colors.textSecondary }]}>
+              Enter the number of QR codes to generate (1-100)
+            </Text>
+            <TextInput
+              style={[styles.generateInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+              value={generateCount}
+              onChangeText={setGenerateCount}
+              keyboardType="number-pad"
+              placeholder="10"
+              placeholderTextColor={colors.textTertiary}
+              maxLength={3}
+            />
+            <View style={styles.generateActions}>
+              <TouchableOpacity
+                style={[styles.generateCancelBtn, { borderColor: colors.border }]}
+                onPress={() => setShowGenerateModal(false)}
+              >
+                <Text style={[styles.generateCancelText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.generateSubmitBtn, { opacity: isGenerating ? 0.7 : 1 }]}
+                onPress={handleGenerateQRCodes}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.generateSubmitText}>Generate</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 50, paddingBottom: 30, paddingHorizontal: 20 },
-  headerTitle: { color: '#fff', fontSize: 24, fontWeight: '800', marginBottom: 16 },
+  header: { paddingTop: 20, paddingBottom: 30, paddingHorizontal: 20 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  headerTitle: { color: '#fff', fontSize: 24, fontWeight: '800' },
+  generateButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, gap: 6 },
+  generateButtonText: { color: '#10b981', fontSize: 14, fontWeight: '700' },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   statItem: { alignItems: 'center' },
   statValue: { color: '#fff', fontSize: 22, fontWeight: '800' },
@@ -602,4 +679,14 @@ const styles = StyleSheet.create({
   mapButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   systemInfo: { gap: 8 },
   deviceId: { fontSize: 11, fontFamily: 'monospace', padding: 10, borderRadius: 8, overflow: 'hidden' },
+  // Generate Modal styles
+  generateModalContent: { margin: 20, padding: 24, borderRadius: 20 },
+  generateModalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  generateModalDesc: { fontSize: 14, marginBottom: 20 },
+  generateInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 18, textAlign: 'center', fontWeight: '600' },
+  generateActions: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  generateCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  generateCancelText: { fontSize: 15, fontWeight: '700' },
+  generateSubmitBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#10b981', alignItems: 'center' },
+  generateSubmitText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

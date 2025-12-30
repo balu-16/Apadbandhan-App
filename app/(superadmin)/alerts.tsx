@@ -170,7 +170,7 @@ export default function AlertsManagement() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient colors={isDark ? ['#1a1a2e', '#16213e'] : ['#f59e0b', '#d97706']} style={styles.header}>
+      <LinearGradient colors={isDark ? ['#0f1729', '#16213e'] : ['#f59e0b', '#d97706']} style={styles.header}>
         <Text style={styles.headerTitle}>Alerts Management</Text>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
@@ -298,7 +298,7 @@ export default function AlertsManagement() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 50, paddingBottom: 30, paddingHorizontal: 20 },
+  header: { paddingTop: 20, paddingBottom: 30, paddingHorizontal: 20 },
   headerTitle: { color: '#fff', fontSize: 24, fontWeight: '800', marginBottom: 16 },
   statsRow: { flexDirection: 'row', gap: 30 },
   statItem: { alignItems: 'center' },

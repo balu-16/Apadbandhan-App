@@ -1,41 +1,59 @@
 export const Colors = {
   light: {
-    primary: '#6467f2',
-    primaryDark: '#4f52d1',
-    primaryLight: 'rgba(100, 103, 242, 0.1)',
-    primaryShadow: 'rgba(100, 103, 242, 0.25)',
+    // Primary - Emergency Orange (matching web --primary: 24 100% 50%)
+    primary: '#ff6600',
+    primaryDark: '#e65c00',
+    primaryLight: 'rgba(255, 102, 0, 0.1)',
+    primaryShadow: 'rgba(255, 102, 0, 0.25)',
+    // Backgrounds (matching web --background, --midnight-navy)
     background: '#ffffff',
-    surface: '#f9fafb',
-    surfaceSecondary: '#f3f4f6',
-    text: '#1f2937',
-    textSecondary: '#6b7280',
-    textTertiary: '#9ca3af',
-    border: '#e5e7eb',
-    borderLight: '#f3f4f6',
+    surface: '#fafafa',
+    surfaceSecondary: '#f1f5f9',
+    // Text colors (matching web --foreground, --muted-foreground)
+    text: '#0f172a',
+    textSecondary: '#64748b',
+    textTertiary: '#94a3b8',
+    // Borders (matching web --border)
+    border: '#e2e8f0',
+    borderLight: '#f1f5f9',
+    // Status colors
     success: '#10b981',
     warning: '#f59e0b',
     error: '#ef4444',
     white: '#ffffff',
-    black: '#111118',
+    black: '#0f172a',
+    // Additional colors for gradients
+    midnightNavy: '#fafafa',
+    deepBlue: '#ffffff',
+    cardBorder: '#e2e8f0',
   },
   dark: {
-    primary: '#6467f2',
-    primaryDark: '#4f52d1',
-    primaryLight: 'rgba(100, 103, 242, 0.2)',
-    primaryShadow: 'rgba(100, 103, 242, 0.3)',
-    background: '#111118',
-    surface: '#1f2937',
-    surfaceSecondary: '#374151',
-    text: '#f9fafb',
-    textSecondary: '#9ca3af',
-    textTertiary: '#6b7280',
-    border: '#374151',
-    borderLight: '#4b5563',
+    // Primary - Emergency Orange brighter (matching web dark --primary: 24 100% 55%)
+    primary: '#ff7a1a',
+    primaryDark: '#ff6600',
+    primaryLight: 'rgba(255, 122, 26, 0.2)',
+    primaryShadow: 'rgba(255, 122, 26, 0.3)',
+    // Backgrounds (matching web dark --background: 213 45% 11%, --card: 216 36% 17%)
+    background: '#0f1729',
+    surface: '#1e293b',
+    surfaceSecondary: '#334155',
+    // Text colors (matching web dark --foreground, --muted-foreground)
+    text: '#e2e8f0',
+    textSecondary: '#94a3b8',
+    textTertiary: '#64748b',
+    // Borders (matching web dark --border)
+    border: '#334155',
+    borderLight: '#475569',
+    // Status colors
     success: '#10b981',
     warning: '#f59e0b',
     error: '#ef4444',
     white: '#ffffff',
-    black: '#111118',
+    black: '#0f1729',
+    // Additional colors for gradients
+    midnightNavy: '#0f1729',
+    deepBlue: '#1e293b',
+    cardBorder: '#475569',
   },
 };
 

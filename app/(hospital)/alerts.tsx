@@ -8,28 +8,19 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { hospitalAPI, alertsAPI } from '../../src/services/api';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-interface AlertItem {
-  _id: string;
-  type: string;
-  status: string;
-  createdAt: string;
-  location?: { address?: string };
-  deviceId?: { name?: string };
-}
+import AlertDetailsModal, { AlertItem } from '../../src/components/AlertDetailsModal';
 
 export default function HospitalAlerts() {
   const { colors } = useTheme();
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     fetchAlerts();
@@ -37,7 +28,7 @@ export default function HospitalAlerts() {
 
   const fetchAlerts = async () => {
     try {
-      const response = await alertsAPI.getAll({ limit: 50 });
+      const response = await alertsAPI.getCombined('all');
       setAlerts(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Failed to fetch alerts:', error);
@@ -45,6 +36,13 @@ export default function HospitalAlerts() {
       setIsLoading(false);
     }
   };
+
+  const openDetails = (alert: AlertItem) => {
+    setSelectedAlert(alert);
+    setModalVisible(true);
+  };
+
+  const getSourceColor = (source?: string) => source === 'sos' ? '#a855f7' : '#f97316';
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -106,15 +104,15 @@ export default function HospitalAlerts() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={[styles.alertCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={() => handleUpdateStatus(item._id, item.status)}
+            onPress={() => openDetails(item)}
           >
-            <View style={[styles.alertIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-              <Ionicons name="medkit" size={24} color="#ef4444" />
+            <View style={[styles.alertIcon, { backgroundColor: `${getSourceColor(item.source)}20` }]}>
+              <Ionicons name={item.source === 'sos' ? 'alert-circle' : 'medkit'} size={24} color={getSourceColor(item.source)} />
             </View>
             <View style={styles.alertInfo}>
-              <Text style={[styles.alertType, { color: colors.text }]}>{item.type || 'Medical Emergency'}</Text>
+              <Text style={[styles.alertType, { color: colors.text }]}>{item.type || 'Emergency'}</Text>
               <Text style={[styles.alertLocation, { color: colors.textSecondary }]}>
-                {item.location?.address || 'Location unavailable'}
+                {item.userId?.fullName || 'Unknown User'}
               </Text>
               <Text style={[styles.alertTime, { color: colors.textTertiary }]}>
                 {new Date(item.createdAt).toLocaleString()}
@@ -133,6 +131,13 @@ export default function HospitalAlerts() {
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No medical emergencies at this time</Text>
           </View>
         }
+      />
+
+      <AlertDetailsModal
+        visible={modalVisible}
+        alert={selectedAlert}
+        onClose={() => setModalVisible(false)}
+        colors={colors}
       />
     </View>
   );

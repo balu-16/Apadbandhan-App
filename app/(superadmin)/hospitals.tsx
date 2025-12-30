@@ -153,7 +153,7 @@ export default function HospitalsManagement() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient colors={isDark ? ['#1a1a2e', '#16213e'] : ['#ef4444', '#dc2626']} style={styles.header}>
+      <LinearGradient colors={isDark ? ['#0f1729', '#16213e'] : ['#ef4444', '#dc2626']} style={styles.header}>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>Hospitals Management</Text>
@@ -316,7 +316,7 @@ export default function HospitalsManagement() {
                   {selectedUser.department && (
                     <View style={[styles.detailsCard, { backgroundColor: colors.surface }]}>
                       <View style={[styles.detailsIcon, { backgroundColor: 'rgba(139,92,246,0.1)' }]}>
-                        <Ionicons name="git-branch" size={20} color="#8b5cf6" />
+                        <Ionicons name="git-branch" size={20} color="#ff7a1a" />
                       </View>
                       <View style={styles.detailsInfo}>
                         <Text style={[styles.detailsLabel, { color: colors.textSecondary }]}>Department</Text>
@@ -353,7 +353,7 @@ export default function HospitalsManagement() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 60, paddingBottom: 30, paddingHorizontal: 20 },
+  header: { paddingTop: 20, paddingBottom: 30, paddingHorizontal: 20 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { color: '#fff', fontSize: 24, fontWeight: '800' },
   headerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4 },

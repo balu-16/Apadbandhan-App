@@ -7,13 +7,16 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  Dimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { policeAPI, alertsAPI } from '../../src/services/api';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Stats {
   totalUsers: number;
@@ -22,10 +25,41 @@ interface Stats {
   resolvedAlerts: number;
 }
 
+interface StatCardProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: number;
+  color: string;
+  bgColor: string;
+  onPress?: () => void;
+}
+
+const StatCard = ({ icon, label, value, color, bgColor, onPress }: StatCardProps) => {
+  const { colors } = useTheme();
+  return (
+    <TouchableOpacity
+      style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.statCardContent}>
+        <View>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
+        </View>
+        <View style={[styles.statIconContainer, { backgroundColor: bgColor }]}>
+          <Ionicons name={icon} size={28} color={color} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 export default function PoliceDashboard() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<Stats>({ totalUsers: 0, totalAlerts: 0, pendingAlerts: 0, resolvedAlerts: 0 });
   const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,127 +96,169 @@ export default function PoliceDashboard() {
   };
 
   const fullName = user?.fullName || 'Officer';
-  const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-
-  const quickActions = [
-    { icon: 'people-outline', label: 'USERS', route: '/(police)/users', color: '#6366f1' },
-    { icon: 'warning-outline', label: 'ALERTS', route: '/(police)/alerts', color: '#ef4444' },
-    { icon: 'location-outline', label: 'MAP', route: '/(police)/alerts', color: '#10b981' },
-    { icon: 'settings-outline', label: 'SETTINGS', route: '/(police)/settings', color: '#8b5cf6' },
-  ];
+  const firstName = fullName.split(' ')[0];
 
   if (isLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={isDark ? ['#1e3a8a', '#1e40af'] : ['#3b82f6', '#2563eb']}
-        style={styles.headerGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            <View style={styles.userInfo}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials}</Text>
-              </View>
-              <View>
-                <Text style={styles.welcomeText}>WELCOME BACK</Text>
-                <Text style={styles.userName}>{fullName}</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.notificationBtn}>
-              <Ionicons name="notifications-outline" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-              <View style={styles.statIcon}>
-                <Ionicons name="warning-outline" size={24} color="#fff" />
-              </View>
-              <View style={styles.statTextContainer}>
-                <Text style={styles.statNumber}>{stats.totalAlerts}</Text>
-                <Text style={styles.statLabel}>Alerts</Text>
-              </View>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: 'rgba(245,158,11,0.3)' }]}>
-              <View style={[styles.statIcon, { backgroundColor: 'rgba(245,158,11,0.5)' }]}>
-                <Ionicons name="time-outline" size={24} color="#fff" />
-              </View>
-              <View style={styles.statTextContainer}>
-                <Text style={styles.statNumber}>{stats.pendingAlerts}</Text>
-                <Text style={styles.statLabel}>Pending</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
-
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <View style={[styles.quickActionsCard, { backgroundColor: colors.surface }]}>
-          {quickActions.map((action, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.quickActionItem}
-              onPress={() => router.push(action.route as any)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}15` }]}>
-                <Ionicons name={action.icon as any} size={26} color={action.color} />
-              </View>
-              <Text style={[styles.quickActionLabel, { color: colors.textSecondary }]}>{action.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Alerts</Text>
-          <TouchableOpacity onPress={() => router.push('/(police)/alerts')}>
-            <Text style={styles.viewAllText}>View All</Text>
-          </TouchableOpacity>
-        </View>
-
-        {recentAlerts.length === 0 ? (
-          <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}>
-            <Ionicons name="checkmark-circle" size={48} color="#10b981" />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No recent alerts</Text>
+        {/* Welcome Header */}
+        <View style={styles.welcomeHeader}>
+          <View style={[styles.welcomeIcon, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+            <Ionicons name="shield" size={28} color="#3b82f6" />
           </View>
-        ) : (
-          recentAlerts.map((alert, index) => (
-            <TouchableOpacity
-              key={alert._id || index}
-              style={[styles.alertCard, { backgroundColor: colors.surface }]}
-              onPress={() => router.push('/(police)/alerts')}
-            >
-              <View style={[styles.alertIcon, { backgroundColor: '#ef444415' }]}>
-                <Ionicons name="warning" size={24} color="#ef4444" />
-              </View>
-              <View style={styles.alertInfo}>
-                <Text style={[styles.alertType, { color: colors.text }]}>{alert.type || 'Emergency'}</Text>
-                <Text style={[styles.alertTime, { color: colors.textSecondary }]}>
-                  {new Date(alert.createdAt).toLocaleDateString()}
-                </Text>
-              </View>
-              <View style={[styles.alertStatus, { backgroundColor: alert.status === 'resolved' ? '#10b981' : '#f59e0b' }]}>
-                <Text style={styles.alertStatusText}>{alert.status || 'pending'}</Text>
-              </View>
+          <View style={styles.welcomeText}>
+            <Text style={[styles.welcomeTitle, { color: colors.text }]}>
+              Welcome, {firstName}
+            </Text>
+            <Text style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}>
+              Police Dashboard - Emergency Response Unit
+            </Text>
+          </View>
+        </View>
+
+        {/* Stats Grid */}
+        <View style={styles.statsGrid}>
+          <StatCard
+            icon="people"
+            label="Total Users"
+            value={stats.totalUsers}
+            color="#3b82f6"
+            bgColor="rgba(59, 130, 246, 0.15)"
+            onPress={() => router.push('/(police)/users')}
+          />
+          <StatCard
+            icon="notifications"
+            label="Total Alerts"
+            value={stats.totalAlerts}
+            color={colors.primary}
+            bgColor={isDark ? 'rgba(255,122,26,0.2)' : 'rgba(255,102,0,0.15)'}
+            onPress={() => router.push('/(police)/alerts')}
+          />
+          <StatCard
+            icon="alert-circle"
+            label="Pending Alerts"
+            value={stats.pendingAlerts}
+            color="#ef4444"
+            bgColor="rgba(239, 68, 68, 0.15)"
+            onPress={() => router.push('/(police)/alerts')}
+          />
+          <StatCard
+            icon="checkmark-circle"
+            label="Resolved"
+            value={stats.resolvedAlerts}
+            color="#10b981"
+            bgColor="rgba(16, 185, 129, 0.15)"
+            onPress={() => router.push('/(police)/alerts')}
+          />
+        </View>
+
+        {/* Recent Alerts Section */}
+        <View style={[styles.recentAlertsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.recentAlertsHeader}>
+            <View style={styles.recentAlertsTitleRow}>
+              <Ionicons name="notifications" size={20} color={colors.primary} />
+              <Text style={[styles.recentAlertsTitle, { color: colors.text }]}>Recent Alerts</Text>
+            </View>
+            <TouchableOpacity onPress={() => router.push('/(police)/alerts')}>
+              <Text style={[styles.viewAllText, { color: colors.primary }]}>View All</Text>
             </TouchableOpacity>
-          ))
-        )}
-        <View style={{ height: 120 }} />
+          </View>
+
+          {recentAlerts.length > 0 ? (
+            <View style={styles.alertsList}>
+              {recentAlerts.map((alert, index) => (
+                <View
+                  key={alert._id || index}
+                  style={[styles.alertItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+                >
+                  <View style={styles.alertItemLeft}>
+                    <View style={[
+                      styles.alertIcon,
+                      { backgroundColor: alert.status === 'resolved' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)' }
+                    ]}>
+                      <Ionicons
+                        name={alert.status === 'resolved' ? 'checkmark-circle' : 'alert-circle'}
+                        size={20}
+                        color={alert.status === 'resolved' ? '#10b981' : '#ef4444'}
+                      />
+                    </View>
+                    <View style={styles.alertInfo}>
+                      <Text style={[styles.alertType, { color: colors.text }]}>
+                        {alert.type || 'Emergency'}
+                      </Text>
+                      <Text style={[styles.alertDate, { color: colors.textTertiary }]}>
+                        {new Date(alert.createdAt).toLocaleString('en-IN', {
+                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[
+                    styles.alertStatusBadge,
+                    { backgroundColor: alert.status === 'resolved' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)' }
+                  ]}>
+                    <Text style={[
+                      styles.alertStatusText,
+                      { color: alert.status === 'resolved' ? '#10b981' : '#ef4444' }
+                    ]}>
+                      {alert.status || 'pending'}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyAlerts}>
+              <Ionicons name="time-outline" size={48} color={colors.textTertiary} style={{ opacity: 0.5 }} />
+              <Text style={[styles.emptyAlertsText, { color: colors.textSecondary }]}>No recent alerts</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Quick Navigation */}
+        <View style={[styles.quickNavCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.quickNavTitle, { color: colors.text }]}>Quick Navigation</Text>
+          <View style={styles.quickNavList}>
+            {[
+              { icon: 'people', label: 'Users', route: '/(police)/users', color: '#3b82f6', count: stats.totalUsers },
+              { icon: 'warning', label: 'Alerts', route: '/(police)/alerts', color: '#ef4444', count: stats.totalAlerts },
+              { icon: 'settings', label: 'Settings', route: '/(police)/settings', color: colors.primary, count: 0 },
+            ].map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.quickNavRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}
+                onPress={() => router.push(item.route as any)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.quickNavRowLeft}>
+                  <View style={[styles.quickNavRowIcon, { backgroundColor: `${item.color}15` }]}>
+                    <Ionicons name={item.icon as any} size={22} color={item.color} />
+                  </View>
+                  <Text style={[styles.quickNavRowLabel, { color: colors.text }]}>{item.label}</Text>
+                </View>
+                <View style={styles.quickNavRowRight}>
+                  {item.count > 0 && <Text style={[styles.quickNavRowCount, { color: colors.textSecondary }]}>{item.count}</Text>}
+                  <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
@@ -191,37 +267,46 @@ export default function PoliceDashboard() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  headerGradient: { paddingTop: 50, paddingBottom: 24, paddingHorizontal: 20 },
-  headerContent: { gap: 20 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  userInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  welcomeText: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600', letterSpacing: 1 },
-  userName: { color: '#fff', fontSize: 20, fontWeight: '700', marginTop: 2 },
-  notificationBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
-  statsRow: { flexDirection: 'row', gap: 12 },
-  statCard: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, gap: 10 },
-  statIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  statTextContainer: { flex: 1 },
-  statNumber: { color: '#fff', fontSize: 24, fontWeight: '800' },
-  statLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '500', marginTop: 2 },
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 20 },
-  quickActionsCard: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 20, paddingHorizontal: 10, borderRadius: 24, marginBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
-  quickActionItem: { alignItems: 'center', gap: 8 },
-  quickActionIcon: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  quickActionLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '700' },
-  viewAllText: { color: '#3b82f6', fontSize: 14, fontWeight: '600' },
-  emptyCard: { alignItems: 'center', padding: 40, borderRadius: 20, gap: 12 },
-  emptyText: { fontSize: 15, fontWeight: '500' },
-  alertCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
-  alertIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  alertInfo: { flex: 1, marginLeft: 14 },
-  alertType: { fontSize: 16, fontWeight: '600' },
-  alertTime: { fontSize: 13, fontWeight: '500', marginTop: 2 },
-  alertStatus: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
-  alertStatusText: { color: '#ffffff', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  scrollContent: { paddingHorizontal: 16 },
+  
+  welcomeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 12 },
+  welcomeIcon: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  welcomeText: { flex: 1 },
+  welcomeTitle: { fontSize: 24, fontWeight: '700' },
+  welcomeSubtitle: { fontSize: 13, marginTop: 2 },
+
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+  statCard: { width: (SCREEN_WIDTH - 44) / 2, borderRadius: 16, padding: 16, borderWidth: 1 },
+  statCardContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statLabel: { fontSize: 12, fontWeight: '500', marginBottom: 4 },
+  statValue: { fontSize: 28, fontWeight: '700' },
+  statIconContainer: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+
+  recentAlertsCard: { borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1 },
+  recentAlertsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  recentAlertsTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  recentAlertsTitle: { fontSize: 18, fontWeight: '600' },
+  viewAllText: { fontSize: 14, fontWeight: '600' },
+  alertsList: { gap: 10 },
+  alertItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 12 },
+  alertItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  alertIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  alertInfo: { flex: 1 },
+  alertType: { fontSize: 14, fontWeight: '600' },
+  alertDate: { fontSize: 11, marginTop: 2 },
+  alertStatusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  alertStatusText: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
+  emptyAlerts: { alignItems: 'center', paddingVertical: 32 },
+  emptyAlertsText: { fontSize: 14, marginTop: 8 },
+
+  quickNavCard: { borderRadius: 16, padding: 16, borderWidth: 1 },
+  quickNavTitle: { fontSize: 18, fontWeight: '600', marginBottom: 16 },
+  quickNavList: { gap: 10 },
+  quickNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 12 },
+  quickNavRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  quickNavRowIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  quickNavRowLabel: { fontSize: 15, fontWeight: '600' },
+  quickNavRowRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  quickNavRowCount: { fontSize: 14, fontWeight: '600' },
 });

@@ -1,91 +1,47 @@
-import { useEffect, useCallback } from 'react';
-import { View, Alert, ActivityIndicator } from 'react-native';
-import { Tabs, useRouter, usePathname } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { View, Text, Alert, ActivityIndicator, TouchableOpacity, TouchableWithoutFeedback, Image, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
+import { Slot, useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
-import { Dimensions } from 'react-native';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useProtectedRoute } from '../../src/hooks/useProtectedRoute';
-import { FontSize, FontWeight } from '../../src/constants/theme';
 
-const TAB_ROUTES = ['dashboard', 'users', 'admins', 'police', 'hospitals', 'devices', 'alerts', 'settings'];
-const SWIPE_THRESHOLD = 50;
-const SWIPE_VELOCITY_THRESHOLD = 400;
+interface NavItem {
+  name: string;
+  route: string;
+  icon: string;
+  iconFocused: string;
+}
 
-export default function SuperAdminTabLayout() {
-  const { colors } = useTheme();
-  const { refreshProfile } = useAuthStore();
+const NAV_ITEMS: NavItem[] = [
+  { name: 'Dashboard', route: 'dashboard', icon: 'grid-outline', iconFocused: 'grid' },
+  { name: 'Users', route: 'users', icon: 'people-outline', iconFocused: 'people' },
+  { name: 'Admins', route: 'admins', icon: 'shield-outline', iconFocused: 'shield' },
+  { name: 'Police', route: 'police', icon: 'body-outline', iconFocused: 'body' },
+  { name: 'Hospitals', route: 'hospitals', icon: 'medical-outline', iconFocused: 'medical' },
+  { name: 'Devices', route: 'devices', icon: 'hardware-chip-outline', iconFocused: 'hardware-chip' },
+  { name: 'Requests', route: 'requests', icon: 'document-text-outline', iconFocused: 'document-text' },
+  { name: 'Alerts', route: 'alerts', icon: 'warning-outline', iconFocused: 'warning' },
+  { name: 'Settings', route: 'settings', icon: 'settings-outline', iconFocused: 'settings' },
+];
+
+const SIDEBAR_WIDTH = 260;
+
+export default function SuperAdminLayout() {
+  const { colors, isDark } = useTheme();
+  const { user, refreshProfile, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
-  const translateX = useSharedValue(0);
+  const insets = useSafeAreaInsets();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [slideAnim] = useState(new Animated.Value(-SIDEBAR_WIDTH));
+  const [overlayAnim] = useState(new Animated.Value(0));
   
-  // Protect this route - only superadmin can access
   const { isLoading } = useProtectedRoute({ requiredRole: 'superadmin' });
 
-  const getCurrentIndex = useCallback(() => {
-    const currentRoute = pathname.split('/').pop() || '';
-    return TAB_ROUTES.findIndex(route => route === currentRoute);
-  }, [pathname]);
-
-  const navigateToRoute = useCallback((direction: 'left' | 'right') => {
-    const currentIndex = getCurrentIndex();
-    if (direction === 'left' && currentIndex < TAB_ROUTES.length - 1) {
-      router.push(`/(superadmin)/${TAB_ROUTES[currentIndex + 1]}` as any);
-    } else if (direction === 'right' && currentIndex > 0) {
-      router.push(`/(superadmin)/${TAB_ROUTES[currentIndex - 1]}` as any);
-    }
-    translateX.value = 0;
-  }, [getCurrentIndex, router]);
-
-  const panGesture = Gesture.Pan()
-    .activeOffsetX([-15, 15])
-    .failOffsetY([-10, 10])
-    .onUpdate((e) => {
-      const currentIndex = getCurrentIndex();
-      const isAtStart = currentIndex === 0 && e.translationX > 0;
-      const isAtEnd = currentIndex === TAB_ROUTES.length - 1 && e.translationX < 0;
-      const resistance = isAtStart || isAtEnd ? 0.15 : 0.5;
-      translateX.value = e.translationX * resistance;
-    })
-    .onEnd((e) => {
-      const shouldNavigateLeft = e.translationX < -SWIPE_THRESHOLD || e.velocityX < -SWIPE_VELOCITY_THRESHOLD;
-      const shouldNavigateRight = e.translationX > SWIPE_THRESHOLD || e.velocityX > SWIPE_VELOCITY_THRESHOLD;
-      
-      if (shouldNavigateLeft) {
-        translateX.value = withTiming(-SCREEN_WIDTH * 0.3, { duration: 150, easing: Easing.out(Easing.ease) }, () => {
-          runOnJS(navigateToRoute)('left');
-        });
-      } else if (shouldNavigateRight) {
-        translateX.value = withTiming(SCREEN_WIDTH * 0.3, { duration: 150, easing: Easing.out(Easing.ease) }, () => {
-          runOnJS(navigateToRoute)('right');
-        });
-      } else {
-        translateX.value = withSpring(0, { damping: 25, stiffness: 300 });
-      }
-    });
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const scale = 1 - Math.abs(translateX.value) / SCREEN_WIDTH * 0.05;
-    const opacity = 1 - Math.abs(translateX.value) / SCREEN_WIDTH * 0.2;
-    return {
-      transform: [{ translateX: translateX.value }, { scale }],
-      opacity,
-    };
-  });
-
-  // Show loading while checking auth
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  const currentRoute = pathname.split('/').pop() || 'dashboard';
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -98,134 +54,186 @@ export default function SuperAdminTabLayout() {
     initializeApp();
   }, []);
 
+  const toggleSidebar = () => {
+    if (sidebarOpen) {
+      closeSidebar();
+    } else {
+      openSidebar();
+    }
+  };
+
+  const openSidebar = () => {
+    setSidebarOpen(true);
+    Animated.parallel([
+      Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+      Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const closeSidebar = () => {
+    Animated.parallel([
+      Animated.timing(slideAnim, { toValue: -SIDEBAR_WIDTH, duration: 200, useNativeDriver: true }),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => setSidebarOpen(false));
+  };
+
+  const handleNavPress = (route: string) => {
+    closeSidebar();
+    router.push(`/(superadmin)/${route}` as any);
+  };
+
+  const handleLogout = async () => {
+    closeSidebar();
+    await logout();
+    router.replace('/(auth)/login');
+  };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  const initials = user?.fullName?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'SA';
+
   return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View style={[{ flex: 1 }, animatedStyle]}>
-        <Tabs
-          screenOptions={{
-            headerShown: false,
-            tabBarActiveTintColor: '#6366f1',
-            tabBarInactiveTintColor: colors.textTertiary,
-            tabBarShowLabel: true,
-            tabBarLabelStyle: { fontSize: 9, fontWeight: '600', marginTop: -4 },
-            tabBarStyle: {
-              position: 'absolute',
-              bottom: 24,
-              left: 12,
-              right: 12,
-              height: 70,
-              backgroundColor: colors.surface,
-              borderRadius: 35,
-              borderTopWidth: 0,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.15,
-              shadowRadius: 16,
-              elevation: 10,
-              paddingHorizontal: 5,
-              paddingTop: 0,
-              paddingBottom: 0,
-            },
-            tabBarItemStyle: {
-              flex: 1,
-              height: 70,
-              justifyContent: 'center',
-              alignItems: 'center',
-              paddingTop: 0,
-              paddingBottom: 0,
-            },
-          }}
-        >
-          <Tabs.Screen
-            name="dashboard"
-            options={{
-              title: 'Home',
-              tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-                  <Ionicons name={focused ? 'grid' : 'grid-outline'} size={20} color={focused ? '#6366f1' : color} />
-                </View>
-              ),
-            }}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Hamburger Menu Button */}
+      <TouchableOpacity 
+        style={[styles.hamburgerBtn, { top: insets.top + 10, backgroundColor: isDark ? '#1e293b' : '#ffffff', borderWidth: isDark ? 0 : 1, borderColor: '#e2e8f0' }]} 
+        onPress={toggleSidebar}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="menu" size={24} color={isDark ? '#fff' : '#0f172a'} />
+      </TouchableOpacity>
+
+      {/* Overlay */}
+      {sidebarOpen && (
+        <TouchableWithoutFeedback onPress={closeSidebar}>
+          <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} />
+        </TouchableWithoutFeedback>
+      )}
+
+      {/* Sidebar */}
+      <Animated.View style={[
+        styles.sidebar, 
+        { 
+          backgroundColor: isDark ? '#0f1729' : '#ffffff', 
+          paddingTop: insets.top + 10,
+          transform: [{ translateX: slideAnim }]
+        }
+      ]}>
+        {/* Close Button */}
+        <TouchableOpacity style={styles.closeBtn} onPress={closeSidebar}>
+          <Ionicons name="close" size={24} color={isDark ? 'rgba(255,255,255,0.8)' : '#64748b'} />
+        </TouchableOpacity>
+
+        {/* Logo Section */}
+        <View style={[styles.logoSection, { borderBottomColor: isDark ? 'rgba(255,255,255,0.15)' : '#e2e8f0' }]}>
+          <Image 
+            source={require('../../assets/icon.png')} 
+            style={styles.sidebarLogo}
+            resizeMode="contain"
           />
-          <Tabs.Screen
-            name="users"
-            options={{
-              title: 'Users',
-              tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-                  <Ionicons name={focused ? 'people' : 'people-outline'} size={20} color={focused ? '#6366f1' : color} />
-                </View>
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="admins"
-            options={{
-              title: 'Admins',
-              tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-                  <Ionicons name={focused ? 'shield' : 'shield-outline'} size={20} color={focused ? '#6366f1' : color} />
-                </View>
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="police"
-            options={{
-              title: 'Police',
-              tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-                  <Ionicons name={focused ? 'body' : 'body-outline'} size={20} color={focused ? '#6366f1' : color} />
-                </View>
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="hospitals"
-            options={{
-              title: 'Hospital',
-              tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-                  <Ionicons name={focused ? 'medical' : 'medical-outline'} size={20} color={focused ? '#6366f1' : color} />
-                </View>
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="devices"
-            options={{
-              title: 'Devices',
-              tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-                  <Ionicons name={focused ? 'hardware-chip' : 'hardware-chip-outline'} size={20} color={focused ? '#6366f1' : color} />
-                </View>
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="alerts"
-            options={{
-              title: 'Alerts',
-              tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-                  <Ionicons name={focused ? 'warning' : 'warning-outline'} size={20} color={focused ? '#6366f1' : color} />
-                </View>
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="settings"
-            options={{
-              title: 'Settings',
-              tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-                  <Ionicons name={focused ? 'settings' : 'settings-outline'} size={20} color={focused ? '#6366f1' : color} />
-                </View>
-              ),
-            }}
-          />
-        </Tabs>
+          <View style={styles.brandInfo}>
+            <Text style={[styles.brandName, { color: isDark ? '#fff' : '#0f172a' }]}>APADBANDHAV</Text>
+            <Text style={[styles.brandTagline, { color: isDark ? 'rgba(255,255,255,0.6)' : '#64748b' }]}>Emergency Response</Text>
+          </View>
+        </View>
+
+        {/* Profile Section */}
+        <View style={[styles.profileSection, { borderBottomColor: isDark ? 'rgba(255,255,255,0.15)' : '#e2e8f0' }]}>
+          {user?.profilePhoto ? (
+            <Image source={{ uri: user.profilePhoto }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(255,102,0,0.15)' }]}>
+              <Text style={[styles.avatarText, { color: isDark ? '#fff' : '#ff6600' }]}>{initials}</Text>
+            </View>
+          )}
+          <View style={styles.profileInfo}>
+            <Text style={[styles.userName, { color: isDark ? '#fff' : '#0f172a' }]} numberOfLines={1}>{user?.fullName || 'Super Admin'}</Text>
+            <View style={styles.roleBadge}>
+              <Ionicons name="shield-checkmark" size={10} color={isDark ? '#fbbf24' : '#ff6600'} />
+              <Text style={[styles.roleText, { color: isDark ? '#fbbf24' : '#ff6600' }]}>Super Admin</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Navigation Items */}
+        <ScrollView style={styles.navScroll} showsVerticalScrollIndicator={false}>
+          {NAV_ITEMS.map((item) => {
+            const isActive = currentRoute === item.route;
+            return (
+              <TouchableOpacity
+                key={item.route}
+                style={[
+                  styles.navItem, 
+                  isActive && { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,102,0,0.12)' }
+                ]}
+                onPress={() => handleNavPress(item.route)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={(isActive ? item.iconFocused : item.icon) as any}
+                  size={20}
+                  color={isActive ? (isDark ? '#fff' : '#ff6600') : (isDark ? 'rgba(255,255,255,0.7)' : '#64748b')}
+                />
+                <Text style={[
+                  styles.navText, 
+                  { color: isDark ? 'rgba(255,255,255,0.7)' : '#64748b' },
+                  isActive && { color: isDark ? '#fff' : '#ff6600', fontWeight: '700' }
+                ]}>{item.name}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Logout Button */}
+        <TouchableOpacity style={[styles.logoutButton, { borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#e2e8f0' }]} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color={isDark ? 'rgba(255,255,255,0.7)' : '#64748b'} />
+          <Text style={[styles.logoutText, { color: isDark ? 'rgba(255,255,255,0.7)' : '#64748b' }]}>Logout</Text>
+        </TouchableOpacity>
+
+        {/* Version */}
+        <Text style={[styles.version, { color: isDark ? 'rgba(255,255,255,0.4)' : '#94a3b8' }]}>v1.0.0</Text>
       </Animated.View>
-    </GestureDetector>
+
+      {/* Main Content */}
+      <View style={[styles.mainContent, { paddingTop: insets.top }]}>
+        <Slot />
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  hamburgerBtn: { position: 'absolute', left: 16, zIndex: 10, width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4 },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 20 },
+  sidebar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: SIDEBAR_WIDTH, paddingHorizontal: 16, paddingBottom: 20, zIndex: 30, shadowColor: '#000', shadowOffset: { width: 2, height: 0 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 10 },
+  closeBtn: { position: 'absolute', top: 16, right: 12, width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', zIndex: 10 },
+  logoSection: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 50, paddingBottom: 16, borderBottomWidth: 1 },
+  sidebarLogo: { width: 45, height: 45, borderRadius: 10 },
+  brandInfo: { flex: 1 },
+  brandName: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+  brandTagline: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '500', marginTop: 2 },
+  profileSection: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, borderBottomWidth: 1, marginBottom: 12 },
+  avatar: { width: 44, height: 44, borderRadius: 22 },
+  avatarPlaceholder: { backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  profileInfo: { flex: 1 },
+  userName: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  roleBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  roleText: { color: '#fbbf24', fontSize: 10, fontWeight: '600' },
+  navScroll: { flex: 1 },
+  navItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, marginBottom: 4 },
+  navItemActive: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  navText: { color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: '500' },
+  navTextActive: { color: '#fff', fontWeight: '700' },
+  logoutButton: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginTop: 16 },
+  logoutText: { color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: '500' },
+  version: { color: 'rgba(255,255,255,0.4)', fontSize: 11, textAlign: 'center', marginTop: 12 },
+  mainContent: { flex: 1 },
+});

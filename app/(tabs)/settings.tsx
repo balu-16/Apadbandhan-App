@@ -8,9 +8,11 @@ import {
   TouchableOpacity,
   Switch,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { usersAPI } from '../../src/services/api';
@@ -25,6 +27,8 @@ export default function SettingsScreen() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(user?.profilePhoto || null);
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [email, setEmail] = useState(user?.email || '');
   const [hospitalPreference, setHospitalPreference] = useState<'government' | 'private'>('government');
@@ -38,12 +42,48 @@ export default function SettingsScreen() {
     if (user) {
       setFullName(user.fullName || '');
       setEmail(user.email || '');
+      setProfilePhoto(user.profilePhoto || null);
       setHospitalPreference((user.hospitalPreference as 'government' | 'private') || 'government');
       setAccidentAlerts(user.accidentAlerts ?? true);
       setSmsNotifications(user.smsNotifications ?? true);
       setLocationTracking(user.locationTracking ?? true);
     }
   }, [user]);
+
+  const handlePickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      showAlert({ title: 'Permission Required', message: 'Please allow access to your photos', icon: 'alert-circle', buttons: [{ text: 'OK', style: 'default' }] });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0] && user?.id) {
+      setIsUploadingPhoto(true);
+      try {
+        const asset = result.assets[0];
+        setProfilePhoto(asset.uri);
+        const file = {
+          uri: asset.uri,
+          type: asset.mimeType || 'image/jpeg',
+          name: asset.fileName || 'photo.jpg',
+        };
+        await usersAPI.uploadProfilePhoto(user.id, file);
+        await refreshProfile();
+        showAlert({ title: 'Success', message: 'Profile photo updated', icon: 'checkmark-circle', buttons: [{ text: 'OK', style: 'default' }] });
+      } catch (error: any) {
+        showAlert({ title: 'Error', message: 'Failed to upload photo', icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!user?.id) return;
@@ -128,12 +168,28 @@ export default function SettingsScreen() {
         </View>
         
         <View style={styles.profileRow}>
-          <View style={[styles.avatarContainer, { backgroundColor: colors.primaryLight }]}>
-            <Text style={[styles.avatarText, { color: colors.primary }]}>{initials}</Text>
-          </View>
+          <TouchableOpacity onPress={handlePickImage} style={styles.avatarWrapper}>
+            {profilePhoto ? (
+              <Image source={{ uri: profilePhoto }} style={styles.avatarImage} />
+            ) : (
+              <View style={[styles.avatarContainer, { backgroundColor: colors.primaryLight }]}>
+                <Text style={[styles.avatarText, { color: colors.primary }]}>{initials}</Text>
+              </View>
+            )}
+            <View style={[styles.cameraIcon, { backgroundColor: colors.primary }]}>
+              {isUploadingPhoto ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="camera" size={14} color="#fff" />
+              )}
+            </View>
+          </TouchableOpacity>
           <View style={styles.profileInfo}>
             <Text style={[styles.profileName, { color: colors.text }]}>{user?.fullName || 'User'}</Text>
             <Text style={[styles.profilePhone, { color: colors.textSecondary }]}>{user?.phone}</Text>
+            <TouchableOpacity onPress={handlePickImage}>
+              <Text style={[styles.changePhotoText, { color: colors.primary }]}>Change Photo</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -312,11 +368,15 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   sectionDesc: { fontSize: FontSize.sm, marginBottom: Spacing.lg, lineHeight: 20 },
   profileRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xl },
+  avatarWrapper: { position: 'relative' },
   avatarContainer: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
+  avatarImage: { width: 64, height: 64, borderRadius: 32 },
   avatarText: { fontSize: FontSize['2xl'], fontWeight: FontWeight.bold },
-  profileInfo: { marginLeft: Spacing.lg },
+  cameraIcon: { position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
+  profileInfo: { marginLeft: Spacing.lg, flex: 1 },
   profileName: { fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   profilePhone: { fontSize: FontSize.sm, marginTop: 2 },
+  changePhotoText: { fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginTop: 4 },
   inputGroup: { marginBottom: Spacing.lg },
   label: { fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginBottom: Spacing.sm },
   inputWrapper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, height: 48, gap: Spacing.sm },

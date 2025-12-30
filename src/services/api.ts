@@ -98,6 +98,13 @@ export const usersAPI = {
   getProfile: (id: string) => api.get(`/users/${id}`),
   updateProfile: (id: string, data: Partial<UserProfile>) => api.patch(`/users/${id}`, data),
   deleteAccount: (id: string) => api.delete(`/users/${id}`),
+  uploadProfilePhoto: (id: string, file: { uri: string; type: string; name: string }) => {
+    const formData = new FormData();
+    formData.append('photo', file as any);
+    return api.post(`/users/${id}/photo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 export const devicesAPI = {
@@ -116,6 +123,9 @@ export const alertsAPI = {
   getAll: (params?: { status?: string; limit?: number; skip?: number }) =>
     api.get('/alerts', { params }),
   getStats: () => api.get('/alerts/stats'),
+  getCombined: (source: 'all' | 'alert' | 'sos' = 'all') =>
+    api.get('/alerts/combined', { params: { source } }),
+  getCombinedStats: () => api.get('/alerts/stats/combined'),
   getByDevice: (deviceId: string) => api.get(`/alerts/device/${deviceId}`),
   getById: (id: string) => api.get(`/alerts/${id}`),
   create: (data: AlertData) => api.post('/alerts', data),
@@ -318,6 +328,25 @@ export const onDutyAPI = {
   // Get current on-duty status
   getStatus: () => 
     api.get('/on-duty/status'),
+};
+
+// Partners API
+export const partnersAPI = {
+  // Get all partner requests
+  getAll: (status?: string) => api.get('/partners', { params: { status } }),
+
+  // Get partner request stats
+  getStats: () => api.get('/partners/stats'),
+
+  // Get single partner request
+  getById: (id: string) => api.get(`/partners/${id}`),
+
+  // Update partner request status
+  update: (id: string, data: { status?: string; reviewNotes?: string }) =>
+    api.patch(`/partners/${id}`, data),
+
+  // Delete partner request
+  delete: (id: string) => api.delete(`/partners/${id}`),
 };
 
 export default api;

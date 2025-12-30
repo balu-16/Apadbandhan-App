@@ -13,7 +13,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { useProtectedRoute } from '../../src/hooks/useProtectedRoute';
 import { useLocationTracking } from '../../src/hooks/useLocationTracking';
 
-const TAB_ROUTES = ['home', 'add-device', 'devices', 'settings'];
+const TAB_ROUTES = ['home', 'add-device', 'devices', 'alerts', 'settings'];
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY_THRESHOLD = 400;
 
@@ -151,8 +151,8 @@ export default function TabLayout() {
             options={{
               title: 'Home',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
-                  <Ionicons name={focused ? 'home' : 'home-outline'} size={26} color={focused ? '#6366f1' : color} />
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'home' : 'home-outline'} size={26} color={focused ? '#ff6600' : color} />
                 </View>
               ),
             }}
@@ -162,8 +162,8 @@ export default function TabLayout() {
             options={{
               title: 'Add',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
-                  <Ionicons name={focused ? 'add-circle' : 'add-circle-outline'} size={26} color={focused ? '#6366f1' : color} />
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'add-circle' : 'add-circle-outline'} size={26} color={focused ? '#ff6600' : color} />
                 </View>
               ),
             }}
@@ -173,8 +173,19 @@ export default function TabLayout() {
             options={{
               title: 'Devices',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
-                  <Ionicons name={focused ? 'phone-portrait' : 'phone-portrait-outline'} size={26} color={focused ? '#6366f1' : color} />
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'phone-portrait' : 'phone-portrait-outline'} size={26} color={focused ? '#ff6600' : color} />
+                </View>
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="alerts"
+            options={{
+              title: 'Alerts',
+              tabBarIcon: ({ color, focused }) => (
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'notifications' : 'notifications-outline'} size={26} color={focused ? '#ff6600' : color} />
                 </View>
               ),
             }}
@@ -184,8 +195,8 @@ export default function TabLayout() {
             options={{
               title: 'Settings',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
-                  <Ionicons name={focused ? 'settings' : 'settings-outline'} size={26} color={focused ? '#6366f1' : color} />
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'settings' : 'settings-outline'} size={26} color={focused ? '#ff6600' : color} />
                 </View>
               ),
             }}

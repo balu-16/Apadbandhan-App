@@ -132,7 +132,7 @@ export default function AdminsManagement() {
       activeOpacity={0.7}
     >
       <View style={styles.avatar}>
-        <LinearGradient colors={['#8b5cf6', '#a855f7']} style={styles.avatarGradient}>
+        <LinearGradient colors={['#ff7a1a', '#a855f7']} style={styles.avatarGradient}>
           <Text style={styles.avatarText}>{item.fullName?.charAt(0).toUpperCase() || 'A'}</Text>
         </LinearGradient>
       </View>
@@ -141,8 +141,8 @@ export default function AdminsManagement() {
         <Text style={[styles.email, { color: colors.textSecondary }]}>{item.email}</Text>
         <View style={styles.meta}>
           <View style={[styles.badge, { backgroundColor: 'rgba(139,92,246,0.15)' }]}>
-            <Ionicons name="shield" size={12} color="#8b5cf6" />
-            <Text style={[styles.badgeText, { color: '#8b5cf6' }]}>Admin</Text>
+            <Ionicons name="shield" size={12} color="#ff7a1a" />
+            <Text style={[styles.badgeText, { color: '#ff7a1a' }]}>Admin</Text>
           </View>
           <Text style={[styles.dateText, { color: colors.textTertiary }]}>
             {formatDate(item.createdAt)}
@@ -155,7 +155,7 @@ export default function AdminsManagement() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient colors={isDark ? ['#1a1a2e', '#16213e'] : ['#8b5cf6', '#a855f7']} style={styles.header}>
+      <LinearGradient colors={isDark ? ['#0f1729', '#16213e'] : ['#ff7a1a', '#a855f7']} style={styles.header}>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>Admins Management</Text>
@@ -262,19 +262,19 @@ export default function AdminsManagement() {
             {selectedAdmin && (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.detailsUserHeader}>
-                  <LinearGradient colors={['#8b5cf6', '#a855f7']} style={styles.detailsAvatar}>
+                  <LinearGradient colors={['#ff7a1a', '#a855f7']} style={styles.detailsAvatar}>
                     <Text style={styles.detailsAvatarText}>{selectedAdmin.fullName?.charAt(0).toUpperCase()}</Text>
                   </LinearGradient>
                   <Text style={[styles.detailsUserName, { color: colors.text }]}>{selectedAdmin.fullName}</Text>
                   <View style={[styles.detailsRoleBadge, { backgroundColor: 'rgba(139,92,246,0.15)' }]}>
-                    <Ionicons name="shield" size={14} color="#8b5cf6" />
-                    <Text style={{ color: '#8b5cf6', fontWeight: '600' }}>Administrator</Text>
+                    <Ionicons name="shield" size={14} color="#ff7a1a" />
+                    <Text style={{ color: '#ff7a1a', fontWeight: '600' }}>Administrator</Text>
                   </View>
                 </View>
                 <View style={styles.detailsSection}>
                   <View style={[styles.detailsCard, { backgroundColor: colors.surface }]}>
                     <View style={[styles.detailsIcon, { backgroundColor: 'rgba(139,92,246,0.1)' }]}>
-                      <Ionicons name="mail" size={20} color="#8b5cf6" />
+                      <Ionicons name="mail" size={20} color="#ff7a1a" />
                     </View>
                     <View style={styles.detailsInfo}>
                       <Text style={[styles.detailsLabel, { color: colors.textSecondary }]}>Email</Text>
@@ -319,7 +319,7 @@ export default function AdminsManagement() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 60, paddingBottom: 30, paddingHorizontal: 20 },
+  header: { paddingTop: 20, paddingBottom: 30, paddingHorizontal: 20 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { color: '#fff', fontSize: 24, fontWeight: '800' },
   headerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4 },
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   modalBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   cancelBtn: { backgroundColor: 'rgba(107,114,128,0.15)' },
   cancelBtnText: { color: '#6b7280', fontWeight: '600' },
-  submitBtn: { backgroundColor: '#8b5cf6' },
+  submitBtn: { backgroundColor: '#ff7a1a' },
   submitBtnText: { color: '#fff', fontWeight: '600' },
   // Details modal styles
   detailsOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

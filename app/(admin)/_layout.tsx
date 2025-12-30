@@ -13,7 +13,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { useProtectedRoute } from '../../src/hooks/useProtectedRoute';
 import { FontSize, FontWeight } from '../../src/constants/theme';
 
-const TAB_ROUTES = ['dashboard', 'users', 'devices', 'alerts', 'settings'];
+const TAB_ROUTES = ['dashboard', 'users', 'devices', 'requests', 'alerts', 'settings'];
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY_THRESHOLD = 400;
 
@@ -104,7 +104,7 @@ export default function AdminTabLayout() {
         <Tabs
           screenOptions={{
             headerShown: false,
-            tabBarActiveTintColor: '#6366f1',
+            tabBarActiveTintColor: '#ff6600',
             tabBarInactiveTintColor: colors.textTertiary,
             tabBarShowLabel: false,
             tabBarStyle: {
@@ -140,8 +140,8 @@ export default function AdminTabLayout() {
             options={{
               title: 'Home',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
-                  <Ionicons name={focused ? 'grid' : 'grid-outline'} size={26} color={focused ? '#6366f1' : color} />
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'grid' : 'grid-outline'} size={26} color={focused ? '#ff6600' : color} />
                 </View>
               ),
             }}
@@ -151,8 +151,8 @@ export default function AdminTabLayout() {
             options={{
               title: 'Users',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
-                  <Ionicons name={focused ? 'people' : 'people-outline'} size={26} color={focused ? '#6366f1' : color} />
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'people' : 'people-outline'} size={26} color={focused ? '#ff6600' : color} />
                 </View>
               ),
             }}
@@ -162,8 +162,19 @@ export default function AdminTabLayout() {
             options={{
               title: 'Devices',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
-                  <Ionicons name={focused ? 'hardware-chip' : 'hardware-chip-outline'} size={26} color={focused ? '#6366f1' : color} />
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'hardware-chip' : 'hardware-chip-outline'} size={26} color={focused ? '#ff6600' : color} />
+                </View>
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="requests"
+            options={{
+              title: 'Requests',
+              tabBarIcon: ({ color, focused }) => (
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'document-text' : 'document-text-outline'} size={26} color={focused ? '#ff6600' : color} />
                 </View>
               ),
             }}
@@ -173,8 +184,8 @@ export default function AdminTabLayout() {
             options={{
               title: 'Alerts',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
-                  <Ionicons name={focused ? 'warning' : 'warning-outline'} size={26} color={focused ? '#6366f1' : color} />
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'warning' : 'warning-outline'} size={26} color={focused ? '#ff6600' : color} />
                 </View>
               ),
             }}
@@ -184,8 +195,8 @@ export default function AdminTabLayout() {
             options={{
               title: 'Settings',
               tabBarIcon: ({ color, focused }) => (
-                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#6366f115' : 'transparent', marginTop: 25 }}>
-                  <Ionicons name={focused ? 'settings' : 'settings-outline'} size={26} color={focused ? '#6366f1' : color} />
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: focused ? '#ff660015' : 'transparent', marginTop: 25 }}>
+                  <Ionicons name={focused ? 'settings' : 'settings-outline'} size={26} color={focused ? '#ff6600' : color} />
                 </View>
               ),
             }}

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useOnDutyTracking } from '../hooks/useOnDutyTracking';
+import { useTheme } from '../hooks/useTheme';
 
 interface OnDutyToggleProps {
   role: 'police' | 'hospital';
@@ -16,6 +17,7 @@ interface OnDutyToggleProps {
 
 const OnDutyToggle: React.FC<OnDutyToggleProps> = ({ role, style }) => {
   const { isOnDuty, toggleOnDuty, isLoading, error, lastLocation, lastUpdate } = useOnDutyTracking();
+  const { colors, isDark } = useTheme();
 
   const roleColor = role === 'police' ? '#3b82f6' : '#ef4444';
   const roleLabel = role === 'police' ? 'Police' : 'Hospital';
@@ -26,7 +28,15 @@ const OnDutyToggle: React.FC<OnDutyToggleProps> = ({ role, style }) => {
   };
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[
+      styles.container, 
+      { 
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        borderWidth: 1,
+      },
+      style
+    ]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={[styles.roleIcon, { backgroundColor: roleColor }]}>
@@ -36,31 +46,31 @@ const OnDutyToggle: React.FC<OnDutyToggleProps> = ({ role, style }) => {
             <MaterialIcons name="local-hospital" size={20} color="#fff" />
           )}
         </View>
-        <Text style={styles.title}>{roleLabel} Duty Status</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{roleLabel} Duty Status</Text>
       </View>
 
       {/* Toggle Button */}
       <TouchableOpacity
         style={[
           styles.toggleButton,
-          { backgroundColor: isOnDuty ? '#22c55e' : '#e5e7eb' }
+          { backgroundColor: isOnDuty ? '#22c55e' : (isDark ? '#374151' : '#e5e7eb') }
         ]}
         onPress={toggleOnDuty}
         disabled={isLoading}
         activeOpacity={0.8}
       >
         {isLoading ? (
-          <ActivityIndicator size="small" color={isOnDuty ? '#fff' : '#6b7280'} />
+          <ActivityIndicator size="small" color={isOnDuty ? '#fff' : colors.textSecondary} />
         ) : (
           <>
             <MaterialIcons 
               name={isOnDuty ? "toggle-on" : "toggle-off"} 
               size={32} 
-              color={isOnDuty ? '#fff' : '#6b7280'} 
+              color={isOnDuty ? '#fff' : colors.textSecondary} 
             />
             <Text style={[
               styles.toggleText,
-              { color: isOnDuty ? '#fff' : '#6b7280' }
+              { color: isOnDuty ? '#fff' : colors.textSecondary }
             ]}>
               {isOnDuty ? 'ON DUTY' : 'OFF DUTY'}
             </Text>
@@ -68,20 +78,21 @@ const OnDutyToggle: React.FC<OnDutyToggleProps> = ({ role, style }) => {
         )}
       </TouchableOpacity>
 
+
       {/* Status Info */}
       {isOnDuty && (
-        <View style={styles.statusInfo}>
+        <View style={[styles.statusInfo, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4' }]}>
           <View style={styles.statusRow}>
             <MaterialIcons name="my-location" size={16} color="#22c55e" />
-            <Text style={styles.statusText}>
+            <Text style={[styles.statusText, { color: colors.text }]}>
               Location tracking active
             </Text>
           </View>
           
           {lastLocation && (
             <View style={styles.statusRow}>
-              <MaterialIcons name="location-on" size={16} color="#6b7280" />
-              <Text style={styles.statusText}>
+              <MaterialIcons name="location-on" size={16} color={colors.textSecondary} />
+              <Text style={[styles.statusText, { color: colors.textSecondary }]}>
                 {lastLocation.lat.toFixed(4)}, {lastLocation.lng.toFixed(4)}
               </Text>
             </View>
@@ -89,8 +100,8 @@ const OnDutyToggle: React.FC<OnDutyToggleProps> = ({ role, style }) => {
           
           {lastUpdate && (
             <View style={styles.statusRow}>
-              <MaterialIcons name="access-time" size={16} color="#6b7280" />
-              <Text style={styles.statusText}>
+              <MaterialIcons name="access-time" size={16} color={colors.textSecondary} />
+              <Text style={[styles.statusText, { color: colors.textSecondary }]}>
                 Last update: {formatTime(lastUpdate)}
               </Text>
             </View>
@@ -100,14 +111,14 @@ const OnDutyToggle: React.FC<OnDutyToggleProps> = ({ role, style }) => {
 
       {/* Error */}
       {error && (
-        <View style={styles.errorContainer}>
+        <View style={[styles.errorContainer, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2' }]}>
           <MaterialIcons name="error-outline" size={16} color="#ef4444" />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
 
       {/* Info */}
-      <Text style={styles.infoText}>
+      <Text style={[styles.infoText, { color: colors.textTertiary }]}>
         {isOnDuty 
           ? 'Your location is being shared every 60 seconds when you move 50+ meters.'
           : 'Go on duty to start sharing your location for emergency response.'
@@ -119,14 +130,8 @@ const OnDutyToggle: React.FC<OnDutyToggleProps> = ({ role, style }) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   header: {
     flexDirection: 'row',
@@ -143,7 +148,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1f2937',
     marginLeft: 12,
   },
   toggleButton: {
@@ -161,7 +165,6 @@ const styles = StyleSheet.create({
   statusInfo: {
     marginTop: 16,
     padding: 12,
-    backgroundColor: '#f0fdf4',
     borderRadius: 12,
     gap: 8,
   },
@@ -172,14 +175,12 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 13,
-    color: '#374151',
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 12,
     padding: 10,
-    backgroundColor: '#fef2f2',
     borderRadius: 8,
     gap: 8,
   },
@@ -190,7 +191,6 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 12,
-    color: '#9ca3af',
     marginTop: 12,
     textAlign: 'center',
   },

@@ -7,11 +7,10 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
-  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useDeviceStore } from '../../src/store/deviceStore';
@@ -19,11 +18,42 @@ import SOSButton from '../../src/components/SOSButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+interface StatCardProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: number;
+  color: string;
+  bgColor: string;
+  onPress?: () => void;
+}
+
+const StatCard = ({ icon, label, value, color, bgColor, onPress }: StatCardProps) => {
+  const { colors } = useTheme();
+  return (
+    <TouchableOpacity
+      style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.statCardContent}>
+        <View>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
+        </View>
+        <View style={[styles.statIconContainer, { backgroundColor: bgColor }]}>
+          <Ionicons name={icon} size={28} color={color} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 export default function HomeScreen() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { user, isAuthenticated, token } = useAuthStore();
   const { devices, fetchDevices } = useDeviceStore();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -40,15 +70,9 @@ export default function HomeScreen() {
   };
 
   const fullName = user?.fullName || 'User';
-  const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const firstName = fullName.split(' ')[0];
   const onlineDevices = devices.filter(d => d.status === 'online').length;
-
-  const quickActions = [
-    { icon: 'add-circle-outline', label: 'ADD DEVICE', route: '/(tabs)/add-device', color: '#6366f1' },
-    { icon: 'location-outline', label: 'MAP VIEW', route: '/(tabs)/devices', color: '#10b981' },
-    { icon: 'warning-outline', label: 'ALERTS', route: '/(tabs)/devices', color: '#ef4444' },
-    { icon: 'time-outline', label: 'HISTORY', route: '/(tabs)/devices', color: '#f59e0b' },
-  ];
+  const offlineDevices = devices.length - onlineDevices;
 
   const getTimeAgo = (date?: string) => {
     if (!date) return '';
@@ -75,132 +99,128 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={isDark ? ['#1e1b4b', '#312e81'] : ['#6366f1', '#8b5cf6']}
-        style={styles.headerGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            <View style={styles.userInfo}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials}</Text>
-              </View>
-              <View>
-                <Text style={styles.welcomeText}>WELCOME BACK</Text>
-                <Text style={styles.userName}>{fullName}</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.notificationBtn}>
-              <Ionicons name="notifications-outline" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-              <View style={styles.statIcon}>
-                <Ionicons name="phone-portrait-outline" size={22} color="#fff" />
-              </View>
-              <View style={styles.statTextContainer}>
-                <Text style={styles.statNumber}>{devices.length}</Text>
-                <Text style={styles.statLabel}>Active Devices</Text>
-              </View>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: 'rgba(16,185,129,0.3)' }]}>
-              <View style={[styles.statIcon, { backgroundColor: 'rgba(16,185,129,0.5)' }]}>
-                <Ionicons name="pulse-outline" size={22} color="#fff" />
-              </View>
-              <View style={styles.statTextContainer}>
-                <Text style={styles.statNumber}>{onlineDevices}</Text>
-                <Text style={styles.statLabel}>Online Now</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
-
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        <View style={[styles.quickActionsCard, { backgroundColor: colors.surface }]}>
-          {quickActions.map((action, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.quickActionItem}
-              onPress={() => router.push(action.route as any)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}15` }]}>
-                <Ionicons name={action.icon as any} size={26} color={action.color} />
-              </View>
-              <Text style={[styles.quickActionLabel, { color: colors.textSecondary }]}>{action.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Devices</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/devices')}>
-            <Text style={styles.viewAllText}>View All</Text>
-          </TouchableOpacity>
-        </View>
-
-        {devices.length === 0 ? (
-          <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
-            <Ionicons name="hardware-chip-outline" size={48} color={colors.textTertiary} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>No devices yet</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              Add your first device to start tracking
+        {/* Welcome Header */}
+        <View style={styles.welcomeHeader}>
+          <View style={[styles.welcomeIcon, { backgroundColor: isDark ? 'rgba(255,102,0,0.2)' : 'rgba(255,102,0,0.15)' }]}>
+            <Ionicons name="home" size={28} color={colors.primary} />
+          </View>
+          <View style={styles.welcomeText}>
+            <Text style={[styles.welcomeTitle, { color: colors.text }]}>
+              Welcome, {firstName}
             </Text>
-            <TouchableOpacity
-              style={styles.addDeviceBtn}
-              onPress={() => router.push('/(tabs)/add-device')}
-            >
-              <LinearGradient colors={['#6366f1', '#8b5cf6']} style={styles.addDeviceBtnGradient}>
-                <Ionicons name="add" size={20} color="#fff" />
-                <Text style={styles.addDeviceBtnText}>Add Device</Text>
-              </LinearGradient>
+            <Text style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}>
+              Track and manage your devices
+            </Text>
+          </View>
+        </View>
+
+        {/* Stats Grid */}
+        <View style={styles.statsGrid}>
+          <StatCard
+            icon="hardware-chip"
+            label="Total Devices"
+            value={devices.length}
+            color="#3b82f6"
+            bgColor="rgba(59, 130, 246, 0.15)"
+            onPress={() => router.push('/(tabs)/devices')}
+          />
+          <StatCard
+            icon="pulse"
+            label="Online"
+            value={onlineDevices}
+            color="#10b981"
+            bgColor="rgba(16, 185, 129, 0.15)"
+            onPress={() => router.push('/(tabs)/devices')}
+          />
+          <StatCard
+            icon="cloud-offline"
+            label="Offline"
+            value={offlineDevices}
+            color="#ef4444"
+            bgColor="rgba(239, 68, 68, 0.15)"
+            onPress={() => router.push('/(tabs)/devices')}
+          />
+          <StatCard
+            icon="add-circle"
+            label="Add New"
+            value={0}
+            color={colors.primary}
+            bgColor={isDark ? 'rgba(255,122,26,0.2)' : 'rgba(255,102,0,0.15)'}
+            onPress={() => router.push('/(tabs)/add-device')}
+          />
+        </View>
+
+        {/* Your Devices Section */}
+        <View style={[styles.devicesCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.devicesHeader}>
+            <View style={styles.devicesTitleRow}>
+              <Ionicons name="hardware-chip" size={20} color={colors.primary} />
+              <Text style={[styles.devicesTitle, { color: colors.text }]}>Your Devices</Text>
+            </View>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/devices')}>
+              <Text style={[styles.viewAllText, { color: colors.primary }]}>View All</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          devices.slice(0, 5).map((device, index) => (
-            <TouchableOpacity
-              key={device._id || index}
-              style={[styles.deviceCard, { backgroundColor: colors.surface }]}
-              onPress={() => router.push('/(tabs)/devices')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.deviceIconContainer}>
-                <Text style={styles.deviceEmoji}>{getDeviceIcon(device.name || '')}</Text>
-              </View>
-              <View style={styles.deviceInfo}>
-                <Text style={[styles.deviceName, { color: colors.text }]}>
-                  {device.name || 'Unnamed Device'}
-                </Text>
-                <View style={styles.deviceMeta}>
-                  <Text style={[
-                    styles.deviceStatus,
-                    { color: device.status === 'online' ? '#10b981' : '#6b7280' }
-                  ]}>
-                    {device.status === 'online' ? 'ONLINE' : 'OFFLINE'}
-                  </Text>
-                  <Text style={[styles.deviceTime, { color: colors.textTertiary }]}>
-                    • {getTimeAgo((device as any).updatedAt) || '2m ago'}
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-            </TouchableOpacity>
-          ))
-        )}
 
-        <View style={{ height: 120 }} />
+          {devices.length === 0 ? (
+            <View style={styles.emptyDevices}>
+              <Ionicons name="hardware-chip-outline" size={48} color={colors.textTertiary} style={{ opacity: 0.5 }} />
+              <Text style={[styles.emptyDevicesText, { color: colors.textSecondary }]}>No devices yet</Text>
+              <TouchableOpacity
+                style={[styles.addDeviceBtn, { backgroundColor: colors.primary }]}
+                onPress={() => router.push('/(tabs)/add-device')}
+              >
+                <Ionicons name="add" size={20} color="#fff" />
+                <Text style={styles.addDeviceBtnText}>Add Device</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.devicesList}>
+              {devices.slice(0, 5).map((device, index) => (
+                <TouchableOpacity
+                  key={device._id || index}
+                  style={[styles.deviceItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+                  onPress={() => router.push('/(tabs)/devices')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.deviceItemLeft}>
+                    <View style={[styles.deviceIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#f3f4f6' }]}>
+                      <Text style={styles.deviceEmoji}>{getDeviceIcon(device.name || '')}</Text>
+                    </View>
+                    <View style={styles.deviceInfo}>
+                      <Text style={[styles.deviceName, { color: colors.text }]}>
+                        {device.name || 'Unnamed Device'}
+                      </Text>
+                      <View style={styles.deviceMeta}>
+                        <View style={[
+                          styles.statusDot,
+                          { backgroundColor: device.status === 'online' ? '#10b981' : '#6b7280' }
+                        ]} />
+                        <Text style={[styles.deviceStatus, { color: device.status === 'online' ? '#10b981' : colors.textTertiary }]}>
+                          {device.status === 'online' ? 'Online' : 'Offline'}
+                        </Text>
+                        <Text style={[styles.deviceTime, { color: colors.textTertiary }]}>
+                          • {getTimeAgo((device as any).updatedAt) || '2m ago'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={{ height: 140 }} />
       </ScrollView>
 
       {/* Floating SOS Button */}
@@ -213,43 +233,41 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerGradient: { paddingTop: 50, paddingBottom: 24, paddingHorizontal: 20 },
-  headerContent: { gap: 20 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  userInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  welcomeText: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600', letterSpacing: 1 },
-  userName: { color: '#fff', fontSize: 20, fontWeight: '700', marginTop: 2 },
-  notificationBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
-  statsRow: { flexDirection: 'row', gap: 12 },
-  statCard: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, gap: 10 },
-  statIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  statTextContainer: { flex: 1 },
-  statNumber: { color: '#fff', fontSize: 24, fontWeight: '800', lineHeight: 28 },
-  statLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600', marginTop: 2 },
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 20 },
-  quickActionsCard: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 20, paddingHorizontal: 10, borderRadius: 24, marginBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
-  quickActionItem: { alignItems: 'center', gap: 8 },
-  quickActionIcon: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  quickActionLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '700' },
-  viewAllText: { color: '#6366f1', fontSize: 14, fontWeight: '600' },
-  emptyState: { alignItems: 'center', padding: 40, borderRadius: 20, gap: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', marginTop: 8 },
-  emptySubtitle: { fontSize: 14, textAlign: 'center' },
-  addDeviceBtn: { marginTop: 16, borderRadius: 12, overflow: 'hidden' },
-  addDeviceBtnGradient: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 24 },
-  addDeviceBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  deviceCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
-  deviceIconContainer: { width: 48, height: 48, borderRadius: 14, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center' },
-  deviceEmoji: { fontSize: 24 },
-  deviceInfo: { flex: 1, marginLeft: 14 },
-  deviceName: { fontSize: 16, fontWeight: '600' },
+  scrollContent: { paddingHorizontal: 16 },
+  
+  welcomeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 12 },
+  welcomeIcon: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  welcomeText: { flex: 1 },
+  welcomeTitle: { fontSize: 24, fontWeight: '700' },
+  welcomeSubtitle: { fontSize: 13, marginTop: 2 },
+
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+  statCard: { width: (SCREEN_WIDTH - 44) / 2, borderRadius: 16, padding: 16, borderWidth: 1 },
+  statCardContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statLabel: { fontSize: 12, fontWeight: '500', marginBottom: 4 },
+  statValue: { fontSize: 28, fontWeight: '700' },
+  statIconContainer: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+
+  devicesCard: { borderRadius: 16, padding: 16, borderWidth: 1 },
+  devicesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  devicesTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  devicesTitle: { fontSize: 18, fontWeight: '600' },
+  viewAllText: { fontSize: 14, fontWeight: '600' },
+  devicesList: { gap: 10 },
+  deviceItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 12 },
+  deviceItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  deviceIconContainer: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  deviceEmoji: { fontSize: 22 },
+  deviceInfo: { flex: 1 },
+  deviceName: { fontSize: 14, fontWeight: '600' },
   deviceMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 6 },
-  deviceStatus: { fontSize: 12, fontWeight: '700' },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  deviceStatus: { fontSize: 12, fontWeight: '500' },
   deviceTime: { fontSize: 12, fontWeight: '500' },
+  emptyDevices: { alignItems: 'center', paddingVertical: 32 },
+  emptyDevicesText: { fontSize: 14, marginTop: 8, marginBottom: 16 },
+  addDeviceBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 },
+  addDeviceBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   sosContainer: { position: 'absolute', bottom: 100, right: 20, zIndex: 1000 },
 });

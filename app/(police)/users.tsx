@@ -77,7 +77,7 @@ export default function PoliceUsersScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient colors={isDark ? ['#1a1a2e', '#16213e'] : ['#3b82f6', '#2563eb']} style={styles.header}>
+      <LinearGradient colors={isDark ? ['#0f1729', '#16213e'] : ['#3b82f6', '#2563eb']} style={styles.header}>
         <Text style={styles.headerTitle}>Registered Users</Text>
         <Text style={styles.headerSubtitle}>{users.length} users in system (Read Only)</Text>
       </LinearGradient>

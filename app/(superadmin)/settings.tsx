@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,22 +6,69 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useAlert } from '../../src/hooks/useAlert';
+import { usersAPI } from '../../src/services/api';
 
 export default function SuperAdminSettings() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
-  const { user, logout } = useAuthStore();
+  const { user, logout, refreshProfile } = useAuthStore();
   const { colorScheme, setColorScheme } = useThemeStore();
   const { showAlert } = useAlert();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(user?.profilePhoto || null);
+
+  useEffect(() => {
+    if (user) {
+      setProfilePhoto(user.profilePhoto || null);
+    }
+  }, [user]);
+
+  const handlePickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      showAlert({ title: 'Permission Required', message: 'Please allow access to your photos', icon: 'alert-circle', buttons: [{ text: 'OK', style: 'default' }] });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0] && user?.id) {
+      setIsUploadingPhoto(true);
+      try {
+        const asset = result.assets[0];
+        setProfilePhoto(asset.uri);
+        const file = {
+          uri: asset.uri,
+          type: asset.mimeType || 'image/jpeg',
+          name: asset.fileName || 'photo.jpg',
+        };
+        await usersAPI.uploadProfilePhoto(user.id, file);
+        await refreshProfile();
+        showAlert({ title: 'Success', message: 'Profile photo updated', icon: 'checkmark-circle', buttons: [{ text: 'OK', style: 'default' }] });
+      } catch (error: any) {
+        showAlert({ title: 'Error', message: 'Failed to upload photo', icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    }
+  };
 
   const handleLogout = () => {
     showAlert({
@@ -105,15 +152,26 @@ export default function SuperAdminSettings() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient
-        colors={isDark ? ['#1a1a2e', '#16213e'] : ['#6366f1', '#8b5cf6']}
+        colors={isDark ? ['#0f1729', '#16213e'] : ['#ff6600', '#ff7a1a']}
         style={styles.header}
       >
         <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <LinearGradient colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']} style={styles.avatar}>
-              <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
-            </LinearGradient>
-          </View>
+          <TouchableOpacity onPress={handlePickImage} style={styles.avatarContainer}>
+            {profilePhoto ? (
+              <Image source={{ uri: profilePhoto }} style={styles.avatarImage} />
+            ) : (
+              <LinearGradient colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']} style={styles.avatar}>
+                <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
+              </LinearGradient>
+            )}
+            <View style={styles.cameraIcon}>
+              {isUploadingPhoto ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="camera" size={14} color="#fff" />
+              )}
+            </View>
+          </TouchableOpacity>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{user?.fullName || 'Super Admin'}</Text>
             <Text style={styles.profileEmail}>{user?.email}</Text>
@@ -181,11 +239,13 @@ export default function SuperAdminSettings() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 50, paddingBottom: 24, paddingHorizontal: 20 },
+  header: { paddingTop: 20, paddingBottom: 24, paddingHorizontal: 20 },
   profileSection: { flexDirection: 'row', alignItems: 'center' },
-  avatarContainer: { marginRight: 16 },
+  avatarContainer: { marginRight: 16, position: 'relative' as const },
   avatar: { width: 70, height: 70, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  avatarImage: { width: 70, height: 70, borderRadius: 20 },
   avatarText: { color: '#fff', fontSize: 28, fontWeight: '700' },
+  cameraIcon: { position: 'absolute' as const, bottom: 0, right: 0, width: 24, height: 24, borderRadius: 12, backgroundColor: '#ff6600', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
   profileInfo: { flex: 1 },
   profileName: { color: '#fff', fontSize: 22, fontWeight: '800' },
   profileEmail: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 2 },

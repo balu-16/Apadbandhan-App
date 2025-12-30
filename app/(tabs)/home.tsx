@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useDeviceStore } from '../../src/store/deviceStore';
+import SOSButton from '../../src/components/SOSButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -201,6 +202,11 @@ export default function HomeScreen() {
 
         <View style={{ height: 120 }} />
       </ScrollView>
+
+      {/* Floating SOS Button */}
+      <View style={styles.sosContainer}>
+        <SOSButton size={70} />
+      </View>
     </View>
   );
 }
@@ -245,4 +251,5 @@ const styles = StyleSheet.create({
   deviceMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 6 },
   deviceStatus: { fontSize: 12, fontWeight: '700' },
   deviceTime: { fontSize: 12, fontWeight: '500' },
+  sosContainer: { position: 'absolute', bottom: 100, right: 20, zIndex: 1000 },
 });

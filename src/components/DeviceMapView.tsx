@@ -27,6 +27,7 @@ interface LocationHistory {
   speed?: number;
   heading?: number;
   recordedAt: string;
+  isSOS?: boolean;
 }
 
 interface DeviceMapViewProps {
@@ -83,7 +84,7 @@ export function DeviceMapView({
       }
 
       try {
-        const response = await deviceLocationsAPI.getByDevice(deviceId, { limit: 100 });
+        const response = await deviceLocationsAPI.getByDevice(deviceId);
 
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           const sortedLocations = response.data.sort(
@@ -259,11 +260,11 @@ export function DeviceMapView({
                       key={loc._id}
                       coordinate={{ latitude: loc.latitude, longitude: loc.longitude }}
                       anchor={{ x: 0.5, y: 0.5 }}
-                      title={`Waypoint ${index + 1}`}
+                      title={loc.isSOS ? '🚨 SOS Alert' : `Waypoint ${index + 1}`}
                       description={`${formatTime(loc.recordedAt)}${loc.speed ? ` - ${loc.speed} km/h` : ''}`}
                     >
-                      <View style={styles.waypointMarker}>
-                        <View style={styles.waypointMarkerInner} />
+                      <View style={loc.isSOS ? styles.sosMarker : styles.waypointMarker}>
+                        <View style={loc.isSOS ? styles.sosMarkerInner : styles.waypointMarkerInner} />
                       </View>
                     </Marker>
                   ))}
@@ -320,6 +321,12 @@ export function DeviceMapView({
                     <View style={styles.legendItem}>
                       <View style={[styles.legendDot, { backgroundColor: '#3b82f6' }]} />
                       <Text style={[styles.legendText, { color: colors.textSecondary }]}>Waypoints</Text>
+                    </View>
+                  )}
+                  {locationHistory.some(loc => loc.isSOS) && (
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
+                      <Text style={[styles.legendText, { color: colors.textSecondary }]}>SOS</Text>
                     </View>
                   )}
                   <View style={styles.legendItem}>
@@ -558,6 +565,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#3b82f6',
     borderWidth: 2,
+    borderColor: '#fff',
+  },
+  sosMarker: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sosMarkerInner: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ef4444',
+    borderWidth: 3,
     borderColor: '#fff',
   },
   endMarker: {

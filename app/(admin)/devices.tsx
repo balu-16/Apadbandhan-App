@@ -18,7 +18,7 @@ import { adminAPI } from '../../src/services/api';
 import { DeviceMapView } from '../../src/components/DeviceMapView';
 import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants/theme';
 
-const API_URL = 'https://apadbandhan-backend.vercel.app/api';
+const API_URL = 'http://localhost:3000/api';
 
 interface Device {
   _id: string;

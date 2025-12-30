@@ -55,7 +55,7 @@ interface QRCode {
   };
 }
 
-const API_URL = 'https://apadbandhan-backend.vercel.app/api';
+const API_URL = 'http://localhost:3000/api';
 
 export default function DevicesManagement() {
   const { colors, isDark } = useTheme();

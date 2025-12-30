@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useAlert } from '../../src/hooks/useAlert';
+import OnDutyToggle from '../../src/components/OnDutyToggle';
 
 export default function PoliceSettings() {
   const router = useRouter();
@@ -51,6 +52,9 @@ export default function PoliceSettings() {
           </View>
         </View>
       </View>
+
+      {/* On-Duty Toggle Section */}
+      <OnDutyToggle role="police" style={{ marginHorizontal: 20, marginBottom: 24 }} />
 
       <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>APPEARANCE</Text>

@@ -51,7 +51,7 @@ export interface EmergencyContact {
   isActive?: boolean;
 }
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://apadbandhan-backend.vercel.app/api';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -138,6 +138,7 @@ export const deviceLocationsAPI = {
     pincode?: string;
     country?: string;
     source?: string;
+    isSOS?: boolean;
   }) => api.post('/device-locations/browser', data),
   getByDevice: (
     deviceId: string,
@@ -241,6 +242,82 @@ export const healthAPI = {
   check: () => api.get('/health'),
   checkMqtt: () => api.get('/health/mqtt'),
   checkDetailed: () => api.get('/health/detailed'),
+};
+
+// SOS Types
+export interface SosResponder {
+  id: string;
+  name: string;
+  role: 'police' | 'hospital';
+  phone: string;
+  distance: number;
+  distanceMeters: number;
+  lastActiveLocation: {
+    type: string;
+    coordinates: [number, number];
+  };
+  onDuty: boolean;
+  lastUpdated: Date;
+}
+
+export interface SosTriggerResponse {
+  success: boolean;
+  sosId: string;
+  status: 'pending' | 'assigned' | 'no-responders' | 'resolved';
+  message: string;
+  victimLocation: {
+    lat: number;
+    lng: number;
+  };
+  responders: {
+    police: SosResponder[];
+    hospitals: SosResponder[];
+    totalFound: number;
+  };
+}
+
+// SOS API
+export const sosAPI = {
+  // Trigger SOS emergency - finds nearby police and hospitals
+  trigger: (data: { lat: number; lng: number }) => 
+    api.post<SosTriggerResponse>('/sos/trigger', data),
+
+  // Get SOS results by ID
+  getResults: (sosId: string) => 
+    api.get(`/sos/results/${sosId}`),
+
+  // Resolve SOS event
+  resolve: (sosId: string, notes?: string) => 
+    api.post(`/sos/resolve/${sosId}`, { notes }),
+
+  // Get user's SOS history
+  getHistory: () => 
+    api.get('/sos/history'),
+
+  // Get all active SOS events (admin/responder)
+  getActive: () => 
+    api.get('/sos/active'),
+};
+
+// On-Duty API (for police/hospital responders)
+export const onDutyAPI = {
+  // Update responder location when on duty
+  updateLocation: (data: {
+    lat: number;
+    lng: number;
+    accuracy?: number;
+    altitude?: number;
+    speed?: number;
+    heading?: number;
+  }) => api.post('/on-duty/location', data),
+
+  // Toggle on-duty status
+  toggle: (data: { onDuty: boolean; lat?: number; lng?: number }) => 
+    api.post('/on-duty/toggle', data),
+
+  // Get current on-duty status
+  getStatus: () => 
+    api.get('/on-duty/status'),
 };
 
 export default api;

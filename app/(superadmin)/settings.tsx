@@ -48,11 +48,20 @@ export default function SuperAdminSettings() {
 
   const firstName = user?.fullName?.split(' ')[0] || 'Super Admin';
 
-  const settingsSections = [
+  type SettingItem = 
+    | { icon: string; label: string; subtitle?: string; onPress: () => void; isSwitch?: false }
+    | { icon: string; label: string; subtitle?: string; isSwitch: true; value: boolean; onToggle: () => void };
+
+  interface SettingsSection {
+    title: string;
+    items: SettingItem[];
+  }
+
+  const settingsSections: SettingsSection[] = [
     {
       title: 'Account',
       items: [
-        { icon: 'person', label: 'Profile', subtitle: user?.email, onPress: () => {} },
+        { icon: 'person', label: 'Profile', subtitle: user?.email || undefined, onPress: () => {} },
         { icon: 'key', label: 'Change Password', onPress: () => {} },
         { icon: 'shield-checkmark', label: 'Security', onPress: () => {} },
       ],

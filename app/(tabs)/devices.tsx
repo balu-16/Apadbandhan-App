@@ -100,7 +100,7 @@ export default function DevicesScreen() {
                 return;
               }
               const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-              
+
               const sosResponse = await sosAPI.trigger({
                 lat: location.coords.latitude,
                 lng: location.coords.longitude,
@@ -170,9 +170,11 @@ export default function DevicesScreen() {
           </View>
         ) : (
           devices.map((device, index) => (
-            <View
+            <TouchableOpacity
               key={device._id || index}
+              onPress={() => router.push(`/(tabs)/devices/${device._id}`)}
               style={[styles.deviceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              activeOpacity={0.7}
             >
               <View style={styles.deviceHeader}>
                 <View style={[styles.deviceIcon, { backgroundColor: isDark ? 'rgba(255,102,0,0.2)' : 'rgba(255,102,0,0.12)' }]}>
@@ -210,27 +212,36 @@ export default function DevicesScreen() {
               <View style={styles.deviceActions}>
                 <TouchableOpacity
                   style={[styles.actionButton, { borderColor: '#ef4444', backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.08)' }]}
-                  onPress={() => handleSOS(device)}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleSOS(device);
+                  }}
                 >
                   <Ionicons name="warning" size={18} color="#ef4444" />
                   <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>SOS</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(255,102,0,0.15)' : 'rgba(255,102,0,0.08)' }]}
-                  onPress={() => handleTrackDevice(device)}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleTrackDevice(device);
+                  }}
                 >
                   <Ionicons name="location-outline" size={18} color={colors.primary} />
                   <Text style={[styles.actionButtonText, { color: colors.primary }]}>Track</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, { borderColor: '#ef4444', backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.08)' }]}
-                  onPress={() => handleDeleteDevice(device._id!, device.name || 'Device')}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleDeleteDevice(device._id!, device.name || 'Device');
+                  }}
                 >
                   <Ionicons name="trash-outline" size={18} color="#ef4444" />
                   <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>Delete</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </ScrollView>
@@ -249,9 +260,9 @@ export default function DevicesScreen() {
             initialLocation={
               selectedDevice.location?.latitude && selectedDevice.location?.longitude
                 ? {
-                    latitude: selectedDevice.location.latitude,
-                    longitude: selectedDevice.location.longitude,
-                  }
+                  latitude: selectedDevice.location.latitude,
+                  longitude: selectedDevice.location.longitude,
+                }
                 : undefined
             }
             isOnline={selectedDevice.status === 'online'}

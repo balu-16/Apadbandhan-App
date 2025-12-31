@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { hospitalAPI, alertsAPI } from '../../src/services/api';
+import AlertDetailsModal, { AlertItem } from '../../src/components/AlertDetailsModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -60,10 +61,13 @@ export default function HospitalDashboard() {
   const { colors, isDark } = useTheme();
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
+
   const [stats, setStats] = useState<Stats>({ totalUsers: 0, totalAlerts: 0, pendingAlerts: 0, resolvedAlerts: 0 });
-  const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
+  const [recentAlerts, setRecentAlerts] = useState<AlertItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -73,7 +77,7 @@ export default function HospitalDashboard() {
     try {
       const [statsRes, alertsRes] = await Promise.all([
         hospitalAPI.getStats().catch(() => ({ data: {} })),
-        alertsAPI.getAll({ limit: 5 }).catch(() => ({ data: [] })),
+        alertsAPI.getCombined('all').catch(() => ({ data: [] })),
       ]);
       setStats({
         totalUsers: statsRes.data?.totalUsers || 0,
@@ -81,7 +85,9 @@ export default function HospitalDashboard() {
         pendingAlerts: statsRes.data?.pendingAlerts || 0,
         resolvedAlerts: statsRes.data?.resolvedAlerts || 0,
       });
-      setRecentAlerts(Array.isArray(alertsRes.data) ? alertsRes.data : []);
+      // Use combined alerts
+      const allAlerts = Array.isArray(alertsRes.data) ? alertsRes.data as AlertItem[] : [];
+      setRecentAlerts(allAlerts.slice(0, 10));
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -95,8 +101,16 @@ export default function HospitalDashboard() {
     setRefreshing(false);
   };
 
+  const handleAlertClick = (alert: AlertItem) => {
+    setSelectedAlert(alert);
+    setModalVisible(true);
+  };
+
+  const activeEmergencies = recentAlerts.filter(a => a.status !== 'resolved' && a.status !== 'false_alarm');
   const fullName = user?.fullName || 'Staff';
   const firstName = fullName.split(' ')[0];
+
+  const getSourceColor = (source?: string) => source === 'sos' ? '#ef4444' : '#f97316';
 
   if (isLoading) {
     return (
@@ -165,12 +179,64 @@ export default function HospitalDashboard() {
           />
         </View>
 
+        {/* Active Emergencies Section */}
+        {activeEmergencies.length > 0 && (
+          <View style={[styles.activeAlertsCard, { backgroundColor: 'rgba(239, 68, 68, 0.05)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+            <View style={styles.recentAlertsHeader}>
+              <View style={styles.recentAlertsTitleRow}>
+                <Ionicons name="warning" size={20} color="#ef4444" style={{ marginRight: 8 }} />
+                <Text style={[styles.recentAlertsTitle, { color: '#ef4444' }]}>Active Emergencies ({activeEmergencies.length})</Text>
+              </View>
+              <TouchableOpacity onPress={() => router.push('/(hospital)/alerts')}>
+                <Text style={[styles.viewAllText, { color: '#ef4444' }]}>View All</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.alertsList}>
+              {activeEmergencies.slice(0, 3).map((alert) => (
+                <TouchableOpacity
+                  key={alert._id}
+                  style={[styles.alertItem, { backgroundColor: colors.surface, borderColor: 'rgba(239, 68, 68, 0.2)', borderWidth: 1 }]}
+                  onPress={() => handleAlertClick(alert)}
+                >
+                  <View style={styles.alertItemLeft}>
+                    <View style={[
+                      styles.alertIcon,
+                      { backgroundColor: alert.source === 'sos' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(249, 115, 22, 0.15)' }
+                    ]}>
+                      <Ionicons
+                        name={alert.source === 'sos' ? 'alert-circle' : 'car'}
+                        size={20}
+                        color={alert.source === 'sos' ? '#ef4444' : '#f97316'}
+                      />
+                    </View>
+                    <View style={styles.alertInfo}>
+                      <Text style={[styles.alertType, { color: colors.text }]}>
+                        {alert.source === 'sos' ? 'SOS Emergency' : alert.type}
+                      </Text>
+                      <Text style={[styles.alertDate, { color: colors.textTertiary }]}>
+                        {new Date(alert.createdAt).toLocaleString()}
+                      </Text>
+                      <Text style={[styles.alertLocation, { color: colors.textSecondary }]}>
+                        {alert.location?.address || 'Location Shared'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[styles.alertStatusBadge, { backgroundColor: '#fef3c7' }]}>
+                    <Text style={[styles.alertStatusText, { color: '#d97706' }]}>{alert.status}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Recent Alerts Section */}
         <View style={[styles.recentAlertsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.recentAlertsHeader}>
             <View style={styles.recentAlertsTitleRow}>
               <Ionicons name="notifications" size={20} color={colors.primary} />
-              <Text style={[styles.recentAlertsTitle, { color: colors.text }]}>Recent Alerts</Text>
+              <Text style={[styles.recentAlertsTitle, { color: colors.text }]}>Recent History</Text>
             </View>
             <TouchableOpacity onPress={() => router.push('/(hospital)/alerts')}>
               <Text style={[styles.viewAllText, { color: colors.primary }]}>View All</Text>
@@ -180,24 +246,25 @@ export default function HospitalDashboard() {
           {recentAlerts.length > 0 ? (
             <View style={styles.alertsList}>
               {recentAlerts.map((alert, index) => (
-                <View
+                <TouchableOpacity
                   key={alert._id || index}
                   style={[styles.alertItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+                  onPress={() => handleAlertClick(alert)}
                 >
                   <View style={styles.alertItemLeft}>
                     <View style={[
                       styles.alertIcon,
-                      { backgroundColor: alert.status === 'resolved' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)' }
+                      { backgroundColor: `${getSourceColor(alert.source)}15` }
                     ]}>
                       <Ionicons
-                        name={alert.status === 'resolved' ? 'checkmark-circle' : 'alert-circle'}
+                        name={alert.source === 'sos' ? 'alert-circle' : 'car'}
                         size={20}
-                        color={alert.status === 'resolved' ? '#10b981' : '#ef4444'}
+                        color={getSourceColor(alert.source)}
                       />
                     </View>
                     <View style={styles.alertInfo}>
                       <Text style={[styles.alertType, { color: colors.text }]}>
-                        {alert.type || 'Medical Emergency'}
+                        {alert.source === 'sos' ? 'SOS Emergency' : alert.type}
                       </Text>
                       <Text style={[styles.alertDate, { color: colors.textTertiary }]}>
                         {new Date(alert.createdAt).toLocaleString('en-IN', {
@@ -217,7 +284,7 @@ export default function HospitalDashboard() {
                       {alert.status || 'pending'}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           ) : (
@@ -260,6 +327,14 @@ export default function HospitalDashboard() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Alert Detail Modal */}
+      <AlertDetailsModal
+        visible={modalVisible}
+        alert={selectedAlert}
+        onClose={() => setModalVisible(false)}
+        colors={colors}
+      />
     </View>
   );
 }
@@ -269,7 +344,7 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 16 },
-  
+
   welcomeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 12 },
   welcomeIcon: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   welcomeText: { flex: 1 },
@@ -283,6 +358,7 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 28, fontWeight: '700' },
   statIconContainer: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
 
+  activeAlertsCard: { borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1 },
   recentAlertsCard: { borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1 },
   recentAlertsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   recentAlertsTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -295,6 +371,7 @@ const styles = StyleSheet.create({
   alertInfo: { flex: 1 },
   alertType: { fontSize: 14, fontWeight: '600' },
   alertDate: { fontSize: 11, marginTop: 2 },
+  alertLocation: { fontSize: 11, marginTop: 1 },
   alertStatusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   alertStatusText: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
   emptyAlerts: { alignItems: 'center', paddingVertical: 32 },

@@ -12,7 +12,32 @@ export interface UserProfile {
   accidentAlerts?: boolean;
   smsNotifications?: boolean;
   locationTracking?: boolean;
+  bloodGroup?: string;
+  address?: string;
+  medicalConditions?: string[];
+  emergencyContacts?: Array<{
+    name: string;
+    relation: string;
+    phone: string;
+  }>;
 }
+
+// ... existing interfaces ...
+
+// export const adminAPI = {
+//   ...
+//   createUser: (data: { 
+//     fullName: string; 
+//     email: string; 
+//     phone: string; 
+//     password?: string;
+//     bloodGroup?: string;
+//     address?: string;
+//     medicalConditions?: string[];
+//     emergencyContacts?: Array<{ name: string; relation: string; phone: string }>;
+//   }) => api.post('/admin/users', data),
+//   ...
+// }
 
 export interface DeviceData {
   _id?: string;
@@ -182,42 +207,50 @@ export const qrCodesAPI = {
 export const adminAPI = {
   // Stats
   getStats: () => api.get('/admin/stats'),
-  
+
   // Users Management
   getAllUsers: (params?: { page?: number; limit?: number; search?: string; role?: string }) =>
     api.get('/admin/users', { params }),
   getUserById: (userId: string) => api.get(`/admin/users/${userId}`),
-  createUser: (data: { fullName: string; email: string; phone: string; password?: string }) =>
-    api.post('/admin/users', data),
+  createUser: (data: {
+    fullName: string;
+    email: string;
+    phone: string;
+    password?: string;
+    bloodGroup?: string;
+    address?: string;
+    medicalConditions?: string[];
+    emergencyContacts?: Array<{ name: string; relation: string; phone: string }>;
+  }) => api.post('/admin/users', data),
   updateUser: (userId: string, data: Partial<UserProfile>) =>
     api.patch(`/admin/users/${userId}`, data),
   deleteUser: (userId: string) => api.delete(`/admin/users/${userId}`),
   getUserLoginLogs: (userId: string) => api.get(`/admin/users/${userId}/login-logs`),
-  
+
   // Admins Management (superadmin only)
   getAllAdmins: () => api.get('/admin/admins'),
   createAdmin: (data: { fullName: string; email: string; phone: string; password: string }) =>
     api.post('/admin/admins', data),
   deleteAdmin: (adminId: string) => api.delete(`/admin/admins/${adminId}`),
   getAdminLoginLogs: (adminId: string) => api.get(`/admin/admins/${adminId}/login-logs`),
-  
+
   // Police Users Management (superadmin only)
   getAllPoliceUsers: () => api.get('/admin/police-users'),
   createPoliceUser: (data: { fullName: string; email: string; phone: string; password: string; badgeNumber?: string; station?: string }) =>
     api.post('/admin/police-users', data),
   deletePoliceUser: (userId: string) => api.delete(`/admin/police-users/${userId}`),
-  
+
   // Hospital Users Management (superadmin only)
   getAllHospitalUsers: () => api.get('/admin/hospital-users'),
   createHospitalUser: (data: { fullName: string; email: string; phone: string; password: string; hospitalName?: string; department?: string }) =>
     api.post('/admin/hospital-users', data),
   deleteHospitalUser: (userId: string) => api.delete(`/admin/hospital-users/${userId}`),
-  
+
   // Devices Management
   getAllDevices: (params?: { page?: number; limit?: number; search?: string }) =>
     api.get('/admin/devices', { params }),
   getDeviceById: (deviceId: string) => api.get(`/admin/devices/${deviceId}`),
-  
+
   // QR Codes Management
   getAllQRCodes: () => api.get('/admin/devices/qrcodes'),
   generateQRCodes: (count: number) => api.post('/admin/devices/generate', { count }),
@@ -289,23 +322,23 @@ export interface SosTriggerResponse {
 // SOS API
 export const sosAPI = {
   // Trigger SOS emergency - finds nearby police and hospitals
-  trigger: (data: { lat: number; lng: number }) => 
+  trigger: (data: { lat: number; lng: number }) =>
     api.post<SosTriggerResponse>('/sos/trigger', data),
 
   // Get SOS results by ID
-  getResults: (sosId: string) => 
+  getResults: (sosId: string) =>
     api.get(`/sos/results/${sosId}`),
 
   // Resolve SOS event
-  resolve: (sosId: string, notes?: string) => 
+  resolve: (sosId: string, notes?: string) =>
     api.post(`/sos/resolve/${sosId}`, { notes }),
 
   // Get user's SOS history
-  getHistory: () => 
+  getHistory: () =>
     api.get('/sos/history'),
 
   // Get all active SOS events (admin/responder)
-  getActive: () => 
+  getActive: () =>
     api.get('/sos/active'),
 };
 
@@ -322,11 +355,11 @@ export const onDutyAPI = {
   }) => api.post('/on-duty/location', data),
 
   // Toggle on-duty status
-  toggle: (data: { onDuty: boolean; lat?: number; lng?: number }) => 
+  toggle: (data: { onDuty: boolean; lat?: number; lng?: number }) =>
     api.post('/on-duty/toggle', data),
 
   // Get current on-duty status
-  getStatus: () => 
+  getStatus: () =>
     api.get('/on-duty/status'),
 };
 

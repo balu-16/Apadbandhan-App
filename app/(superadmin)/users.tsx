@@ -21,6 +21,18 @@ import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+interface EmergencyContact {
+  name: string;
+  phone: string;
+  relationship: string;
+}
+
+interface Device {
+  _id: string;
+  deviceName: string;
+  deviceCode: string;
+}
+
 interface User {
   _id: string;
   fullName: string;
@@ -32,6 +44,10 @@ interface User {
   lastLogin?: string;
   address?: string;
   profilePhoto?: string;
+  bloodGroup?: string;
+  medicalConditions?: string[];
+  emergencyContacts?: EmergencyContact[];
+  devices?: Device[];
 }
 
 export default function UsersManagement() {
@@ -43,11 +59,22 @@ export default function UsersManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  
+
+  // Blood Group Options
+  const bloodGroupOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  const [showBloodGroupPicker, setShowBloodGroupPicker] = useState(false);
+
   // Add User Modal State
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newUser, setNewUser] = useState({ fullName: '', email: '', phone: '' });
+  const [newUser, setNewUser] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    bloodGroup: '',
+    address: '',
+    emergencyContacts: [] as EmergencyContact[],
+  });
 
   const openUserDetails = (user: User) => {
     setSelectedUser(user);
@@ -98,9 +125,40 @@ export default function UsersManagement() {
     setRefreshing(false);
   };
 
+  const resetNewUser = () => {
+    setNewUser({
+      fullName: '',
+      email: '',
+      phone: '',
+      bloodGroup: '',
+      address: '',
+      emergencyContacts: [],
+    });
+  };
+
+  const addEmergencyContact = () => {
+    setNewUser({
+      ...newUser,
+      emergencyContacts: [...newUser.emergencyContacts, { name: '', phone: '', relationship: '' }],
+    });
+  };
+
+  const removeEmergencyContact = (index: number) => {
+    setNewUser({
+      ...newUser,
+      emergencyContacts: newUser.emergencyContacts.filter((_, i) => i !== index),
+    });
+  };
+
+  const updateEmergencyContact = (index: number, field: keyof EmergencyContact, value: string) => {
+    const updated = [...newUser.emergencyContacts];
+    updated[index] = { ...updated[index], [field]: value };
+    setNewUser({ ...newUser, emergencyContacts: updated });
+  };
+
   const handleAddUser = async () => {
     if (!newUser.fullName || !newUser.email || !newUser.phone) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
     if (newUser.phone.length !== 10) {
@@ -113,7 +171,7 @@ export default function UsersManagement() {
       await adminAPI.createUser(newUser as any);
       Alert.alert('Success', 'User created successfully');
       setIsAddModalVisible(false);
-      setNewUser({ fullName: '', email: '', phone: '' });
+      resetNewUser();
       fetchUsers();
     } catch (error: any) {
       const message = error.response?.data?.message || 'Failed to create user';
@@ -343,7 +401,55 @@ export default function UsersManagement() {
                       </View>
                     </View>
                   )}
+
+                  {selectedUser.bloodGroup && (
+                    <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
+                      <View style={[styles.infoIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                        <Ionicons name="water" size={20} color="#ef4444" />
+                      </View>
+                      <View style={styles.infoContent}>
+                        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Blood Group</Text>
+                        <Text style={[styles.infoValue, { color: colors.text }]}>{selectedUser.bloodGroup}</Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
+
+                {/* Emergency Contacts Section */}
+                {selectedUser.emergencyContacts && selectedUser.emergencyContacts.length > 0 && (
+                  <View style={styles.detailsSection}>
+                    <Text style={[styles.detailsSectionTitle, { color: colors.textSecondary }]}>EMERGENCY CONTACTS</Text>
+                    {selectedUser.emergencyContacts.map((contact, index) => (
+                      <View key={index} style={[styles.infoCard, { backgroundColor: colors.surface }]}>
+                        <View style={[styles.infoIcon, { backgroundColor: 'rgba(249, 115, 22, 0.1)' }]}>
+                          <Ionicons name="people" size={20} color="#f97316" />
+                        </View>
+                        <View style={styles.infoContent}>
+                          <Text style={[styles.infoValue, { color: colors.text }]}>{contact.name}</Text>
+                          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{contact.relationship} • {contact.phone}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Devices Section */}
+                {selectedUser.devices && selectedUser.devices.length > 0 && (
+                  <View style={styles.detailsSection}>
+                    <Text style={[styles.detailsSectionTitle, { color: colors.textSecondary }]}>REGISTERED DEVICES</Text>
+                    {selectedUser.devices.map((device, index) => (
+                      <View key={index} style={[styles.infoCard, { backgroundColor: colors.surface }]}>
+                        <View style={[styles.infoIcon, { backgroundColor: 'rgba(168, 85, 247, 0.1)' }]}>
+                          <Ionicons name="hardware-chip" size={20} color="#a855f7" />
+                        </View>
+                        <View style={styles.infoContent}>
+                          <Text style={[styles.infoValue, { color: colors.text }]}>{device.deviceName}</Text>
+                          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Code: {device.deviceCode}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
 
                 {/* Action Buttons */}
                 <View style={styles.modalActions}>
@@ -388,7 +494,7 @@ export default function UsersManagement() {
               </Text>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>Full Name</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Full Name <Text style={{ color: '#ef4444' }}>*</Text></Text>
                 <TextInput
                   style={[styles.textInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
                   placeholder="Enter full name"
@@ -399,7 +505,7 @@ export default function UsersManagement() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>Email</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Email <Text style={{ color: '#ef4444' }}>*</Text></Text>
                 <TextInput
                   style={[styles.textInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
                   placeholder="Enter email address"
@@ -412,7 +518,7 @@ export default function UsersManagement() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>Phone Number</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Phone Number <Text style={{ color: '#ef4444' }}>*</Text></Text>
                 <TextInput
                   style={[styles.textInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
                   placeholder="Enter 10-digit phone number"
@@ -424,10 +530,96 @@ export default function UsersManagement() {
                 />
               </View>
 
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Blood Group</Text>
+                <TouchableOpacity
+                  style={[styles.textInput, styles.pickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => setShowBloodGroupPicker(!showBloodGroupPicker)}
+                >
+                  <Text style={[styles.pickerText, { color: newUser.bloodGroup ? colors.text : colors.textTertiary }]}>
+                    {newUser.bloodGroup || 'Select blood group'}
+                  </Text>
+                  <Ionicons name={showBloodGroupPicker ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textTertiary} />
+                </TouchableOpacity>
+                {showBloodGroupPicker && (
+                  <View style={[styles.pickerOptions, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    {bloodGroupOptions.map((group) => (
+                      <TouchableOpacity
+                        key={group}
+                        style={[styles.pickerOption, newUser.bloodGroup === group && { backgroundColor: `${colors.primary}15` }]}
+                        onPress={() => { setNewUser({ ...newUser, bloodGroup: group }); setShowBloodGroupPicker(false); }}
+                      >
+                        <Text style={[styles.pickerOptionText, { color: newUser.bloodGroup === group ? colors.primary : colors.text }]}>{group}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Address</Text>
+                <TextInput
+                  style={[styles.textInput, styles.multilineInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                  placeholder="Enter address"
+                  placeholderTextColor={colors.textTertiary}
+                  value={newUser.address}
+                  onChangeText={(text) => setNewUser({ ...newUser, address: text })}
+                  multiline
+                  numberOfLines={2}
+                />
+              </View>
+
+              {/* Emergency Contacts Section */}
+              <View style={styles.inputGroup}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>Emergency Contacts</Text>
+                  <TouchableOpacity style={[styles.addContactBtn, { backgroundColor: `${colors.primary}15` }]} onPress={addEmergencyContact}>
+                    <Ionicons name="add" size={18} color={colors.primary} />
+                    <Text style={[styles.addContactText, { color: colors.primary }]}>Add Contact</Text>
+                  </TouchableOpacity>
+                </View>
+                {newUser.emergencyContacts.map((contact, index) => (
+                  <View key={index} style={[styles.contactCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.contactHeader}>
+                      <Text style={[styles.contactTitle, { color: colors.text }]}>Contact {index + 1}</Text>
+                      <TouchableOpacity onPress={() => removeEmergencyContact(index)}>
+                        <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                    <TextInput
+                      style={[styles.contactInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                      placeholder="Contact Name"
+                      placeholderTextColor={colors.textTertiary}
+                      value={contact.name}
+                      onChangeText={(text) => updateEmergencyContact(index, 'name', text)}
+                    />
+                    <TextInput
+                      style={[styles.contactInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                      placeholder="Phone Number"
+                      placeholderTextColor={colors.textTertiary}
+                      value={contact.phone}
+                      onChangeText={(text) => updateEmergencyContact(index, 'phone', text.replace(/\D/g, '').slice(0, 10))}
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                    />
+                    <TextInput
+                      style={[styles.contactInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                      placeholder="Relationship (e.g., Father, Mother)"
+                      placeholderTextColor={colors.textTertiary}
+                      value={contact.relationship}
+                      onChangeText={(text) => updateEmergencyContact(index, 'relationship', text)}
+                    />
+                  </View>
+                ))}
+                {newUser.emergencyContacts.length === 0 && (
+                  <Text style={[styles.noContactsText, { color: colors.textTertiary }]}>No emergency contacts added</Text>
+                )}
+              </View>
+
               <View style={styles.addUserActions}>
                 <TouchableOpacity
                   style={[styles.cancelBtn, { borderColor: colors.border }]}
-                  onPress={() => { setIsAddModalVisible(false); setNewUser({ fullName: '', email: '', phone: '' }); }}
+                  onPress={() => { setIsAddModalVisible(false); resetNewUser(); setShowBloodGroupPicker(false); }}
                 >
                   <Text style={[styles.cancelBtnText, { color: colors.text }]}>Cancel</Text>
                 </TouchableOpacity>
@@ -511,4 +703,23 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 15, fontWeight: '700' },
   submitBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#ff6600', alignItems: 'center' },
   submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  // Blood Group Picker styles
+  pickerButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pickerText: { fontSize: 15 },
+  pickerOptions: { marginTop: 8, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+  pickerOption: { paddingHorizontal: 16, paddingVertical: 12 },
+  pickerOptionText: { fontSize: 15, fontWeight: '500' },
+  multilineInput: { minHeight: 80, textAlignVertical: 'top' as const },
+  // Emergency Contacts styles
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  addContactBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, gap: 4 },
+  addContactText: { fontSize: 13, fontWeight: '600' },
+  contactCard: { padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 12 },
+  contactHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  contactTitle: { fontSize: 14, fontWeight: '600' },
+  contactInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, marginBottom: 8 },
+  noContactsText: { fontSize: 13, fontStyle: 'italic', textAlign: 'center', paddingVertical: 12 },
+  // User Details Modal - Additional Sections
+  detailsSection: { marginTop: 20 },
+  detailsSectionTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginBottom: 12 },
 });

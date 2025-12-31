@@ -2,6 +2,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Linking, P
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import MapView, { Marker, Circle } from 'react-native-maps';
 
+export interface RespondedByInfo {
+  responderId: string;
+  role: 'police' | 'hospital';
+  name: string;
+  phone: string;
+  respondedAt: string;
+}
+
 export interface AlertItem {
   _id: string;
   type: string;
@@ -10,6 +18,8 @@ export interface AlertItem {
   severity?: string;
   createdAt: string;
   resolvedAt?: string;
+  currentSearchRadius?: number;
+  respondedBy?: RespondedByInfo[];
   location?: {
     latitude?: number;
     longitude?: number;
@@ -35,9 +45,11 @@ interface Props {
   alert: AlertItem | null;
   onClose: () => void;
   colors: any;
+  userRole?: 'police' | 'hospital' | 'admin' | 'superadmin';
+  onUpdateStatus?: (alertId: string, newStatus: 'assigned' | 'resolved') => void;
 }
 
-export default function AlertDetailsModal({ visible, alert, onClose, colors }: Props) {
+export default function AlertDetailsModal({ visible, alert, onClose, colors, userRole, onUpdateStatus }: Props) {
   if (!alert) return null;
   const user = alert.userId;
   const hasLoc = alert.location?.latitude && alert.location?.longitude;
@@ -290,6 +302,97 @@ export default function AlertDetailsModal({ visible, alert, onClose, colors }: P
             </View>
           )}
 
+          {/* Response Status - Shows Police/Hospital response */}
+          {alert.source === 'sos' && (
+            <View style={[s.sec, { backgroundColor: colors.surface }]}>
+              <View style={s.secHeader}>
+                <Ionicons name="shield-checkmark" size={18} color="#10b981" />
+                <Text style={[s.st, { color: colors.text }]}>Response Status</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                {/* Police Response */}
+                {(() => {
+                  const policeResponder = alert.respondedBy?.find(r => r.role === 'police');
+                  return (
+                    <View style={[s.responseCard, {
+                      backgroundColor: policeResponder ? '#10b98115' : '#f59e0b15',
+                      borderColor: policeResponder ? '#10b98140' : '#f59e0b40',
+                    }]}>
+                      <View style={[s.responseIcon, { backgroundColor: policeResponder ? '#10b98120' : '#3b82f620' }]}>
+                        <Ionicons name="shield" size={20} color={policeResponder ? '#10b981' : '#3b82f6'} />
+                      </View>
+                      <Text style={[s.responseRole, { color: '#3b82f6' }]}>Police</Text>
+                      <View style={[s.responseBadge, { backgroundColor: policeResponder ? '#10b98120' : '#f59e0b20' }]}>
+                        <Text style={[s.responseBadgeText, { color: policeResponder ? '#10b981' : '#f59e0b' }]}>
+                          {policeResponder ? 'Responded' : 'Waiting'}
+                        </Text>
+                      </View>
+                      {policeResponder ? (
+                        <View style={{ marginTop: 8 }}>
+                          <Text style={[s.responderName, { color: colors.text }]}>{policeResponder.name}</Text>
+                          <Text style={{ fontSize: 11, color: colors.textSecondary }}>+91 {policeResponder.phone}</Text>
+                          <TouchableOpacity
+                            style={s.callBtn}
+                            onPress={() => Linking.openURL(`tel:+91${policeResponder.phone}`)}
+                          >
+                            <Ionicons name="call" size={14} color="#fff" />
+                            <Text style={s.callBtnText}>Call</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 4 }}>Waiting...</Text>
+                      )}
+                    </View>
+                  );
+                })()}
+
+                {/* Hospital Response */}
+                {(() => {
+                  const hospitalResponder = alert.respondedBy?.find(r => r.role === 'hospital');
+                  return (
+                    <View style={[s.responseCard, {
+                      backgroundColor: hospitalResponder ? '#10b98115' : '#f59e0b15',
+                      borderColor: hospitalResponder ? '#10b98140' : '#f59e0b40',
+                    }]}>
+                      <View style={[s.responseIcon, { backgroundColor: hospitalResponder ? '#10b98120' : '#ef444420' }]}>
+                        <FontAwesome5 name="hospital" size={16} color={hospitalResponder ? '#10b981' : '#ef4444'} />
+                      </View>
+                      <Text style={[s.responseRole, { color: '#ef4444' }]}>Hospital</Text>
+                      <View style={[s.responseBadge, { backgroundColor: hospitalResponder ? '#10b98120' : '#f59e0b20' }]}>
+                        <Text style={[s.responseBadgeText, { color: hospitalResponder ? '#10b981' : '#f59e0b' }]}>
+                          {hospitalResponder ? 'Responded' : 'Waiting'}
+                        </Text>
+                      </View>
+                      {hospitalResponder ? (
+                        <View style={{ marginTop: 8 }}>
+                          <Text style={[s.responderName, { color: colors.text }]}>{hospitalResponder.name}</Text>
+                          <Text style={{ fontSize: 11, color: colors.textSecondary }}>+91 {hospitalResponder.phone}</Text>
+                          <TouchableOpacity
+                            style={[s.callBtn, { backgroundColor: '#ef4444' }]}
+                            onPress={() => Linking.openURL(`tel:+91${hospitalResponder.phone}`)}
+                          >
+                            <Ionicons name="call" size={14} color="#fff" />
+                            <Text style={s.callBtnText}>Call</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 4 }}>Waiting...</Text>
+                      )}
+                    </View>
+                  );
+                })()}
+              </View>
+              {alert.currentSearchRadius && alert.status !== 'resolved' && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 6 }}>
+                  <Ionicons name="navigate" size={14} color={colors.textSecondary} />
+                  <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                    Search radius: {(alert.currentSearchRadius / 1000).toFixed(0)}km
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
           {/* Timeline */}
           <View style={[s.sec, { backgroundColor: colors.surface }]}>
             <View style={s.secHeader}>
@@ -316,6 +419,36 @@ export default function AlertDetailsModal({ visible, alert, onClose, colors }: P
               </View>
             )}
           </View>
+
+          {/* Action Buttons - Only show for police/hospital users on pending/assigned alerts */}
+          {onUpdateStatus && userRole && ['police', 'hospital'].includes(userRole) && !isResolved && (
+            <View style={[s.sec, { backgroundColor: colors.surface }]}>
+              <View style={s.secHeader}>
+                <Ionicons name="flash" size={18} color="#f97316" />
+                <Text style={[s.st, { color: colors.text }]}>Quick Actions</Text>
+              </View>
+              <View style={s.actionRow}>
+                {alert.status === 'pending' && (
+                  <TouchableOpacity
+                    style={[s.actionBtn, { backgroundColor: '#3b82f6' }]}
+                    onPress={() => { onUpdateStatus(alert._id, 'assigned'); onClose(); }}
+                  >
+                    <Ionicons name="hand-right" size={20} color="#fff" />
+                    <Text style={s.actionBtnText}>Respond</Text>
+                  </TouchableOpacity>
+                )}
+                {(alert.status === 'pending' || alert.status === 'assigned') && (
+                  <TouchableOpacity
+                    style={[s.actionBtn, { backgroundColor: '#10b981' }]}
+                    onPress={() => { onUpdateStatus(alert._id, 'resolved'); onClose(); }}
+                  >
+                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                    <Text style={s.actionBtnText}>Resolve</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
 
         </ScrollView>
       </View>
@@ -376,8 +509,22 @@ const s = StyleSheet.create({
   deviceCode: { fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
 
+  responseCard: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 2, alignItems: 'center' },
+  responseIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  responseRole: { fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  responseBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  responseBadgeText: { fontSize: 10, fontWeight: '700' },
+  responderName: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  callBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#3b82f6', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, marginTop: 8, gap: 4 },
+  callBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+
   timelineItem: { flexDirection: 'row', alignItems: 'center' },
   tlDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#6b7280', marginRight: 12 },
   tlLabel: { width: 80, fontSize: 13 },
-  tlVal: { flex: 1, fontSize: 13, fontWeight: '600' }
+  tlVal: { flex: 1, fontSize: 13, fontWeight: '600' },
+
+  // Action buttons
+  actionRow: { flexDirection: 'row', gap: 12 },
+  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 12, gap: 8 },
+  actionBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

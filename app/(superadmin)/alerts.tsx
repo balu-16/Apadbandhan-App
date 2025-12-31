@@ -41,6 +41,32 @@ export default function AlertsManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = (alertId: string, source: 'alert' | 'sos' = 'alert') => {
+    Alert.alert(
+      'Delete Alert',
+      'Are you sure you want to delete this alert? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingId(alertId);
+            try {
+              await alertsAPI.delete(alertId, source);
+              fetchAlerts();
+            } catch (error) {
+              console.error('Failed to delete alert:', error);
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -164,6 +190,29 @@ export default function AlertsManagement() {
             </Text>
           </View>
         )}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity 
+            style={styles.viewBtn}
+            onPress={() => setSelectedAlert(item)}
+          >
+            <Ionicons name="eye-outline" size={16} color="#3b82f6" />
+            <Text style={styles.viewBtnText}>View</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.deleteBtn}
+            onPress={() => handleDelete(item._id)}
+            disabled={deletingId === item._id}
+          >
+            {deletingId === item._id ? (
+              <ActivityIndicator size="small" color="#ef4444" />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                <Text style={styles.deleteBtnText}>Delete</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -326,6 +375,11 @@ const styles = StyleSheet.create({
   userName: { fontSize: 13 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   locationText: { fontSize: 12, flex: 1 },
+  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 12, justifyContent: 'flex-end' },
+  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#3b82f620' },
+  viewBtnText: { fontSize: 12, fontWeight: '600', color: '#3b82f6' },
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#ef444420' },
+  deleteBtnText: { fontSize: 12, fontWeight: '600', color: '#ef4444' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
   emptyText: { fontSize: 16, marginTop: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

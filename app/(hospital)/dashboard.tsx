@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { hospitalAPI, alertsAPI } from '../../src/services/api';
 import AlertDetailsModal, { AlertItem } from '../../src/components/AlertDetailsModal';
+import OnDutyToggle from '../../src/components/OnDutyToggle';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -71,6 +72,11 @@ export default function HospitalDashboard() {
 
   useEffect(() => {
     fetchData();
+    // Auto-refresh every 30 seconds
+    const intervalId = setInterval(() => {
+      fetchData();
+    }, 30000);
+    return () => clearInterval(intervalId);
   }, []);
 
   const fetchData = async () => {
@@ -105,6 +111,15 @@ export default function HospitalDashboard() {
     setSelectedAlert(alert);
     setModalVisible(true);
   };
+
+  const handleUpdateAlertStatus = useCallback(async (alertId: string, newStatus: 'assigned' | 'resolved') => {
+    try {
+      await alertsAPI.updateStatus(alertId, { status: newStatus });
+      fetchData(); // Refresh after status update
+    } catch (error) {
+      console.error('Failed to update alert status:', error);
+    }
+  }, []);
 
   const activeEmergencies = recentAlerts.filter(a => a.status !== 'resolved' && a.status !== 'false_alarm');
   const fullName = user?.fullName || 'Staff';
@@ -178,6 +193,9 @@ export default function HospitalDashboard() {
             onPress={() => router.push('/(hospital)/alerts')}
           />
         </View>
+
+        {/* On-Duty Status */}
+        <OnDutyToggle role="hospital" />
 
         {/* Active Emergencies Section */}
         {activeEmergencies.length > 0 && (
@@ -334,6 +352,8 @@ export default function HospitalDashboard() {
         alert={selectedAlert}
         onClose={() => setModalVisible(false)}
         colors={colors}
+        userRole="hospital"
+        onUpdateStatus={handleUpdateAlertStatus}
       />
     </View>
   );

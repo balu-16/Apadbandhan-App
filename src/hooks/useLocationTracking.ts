@@ -14,19 +14,59 @@ interface LocationData {
   accuracy?: number;
 }
 
+const MIN_DISTANCE_METERS = 50; // Minimum distance to trigger location update
+
+// Haversine formula to calculate distance between two coordinates
+const calculateDistanceMeters = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+};
+
 export function useLocationTracking() {
   const { isAuthenticated, token } = useAuthStore();
   const { devices, fetchDevices } = useDeviceStore();
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const appState = useRef(AppState.currentState);
+  const lastSentLocationRef = useRef<{ [deviceId: string]: { lat: number; lng: number } }>({});
 
   const updateDeviceLocations = useCallback(async (location: LocationData) => {
     if (!isAuthenticated || !token || devices.length === 0) return;
 
     try {
-      // Update location for all user's devices
+      // Update location for all user's devices (only if moved >= 50m)
       const updatePromises = devices.map(async (device) => {
         if (!device._id) return;
+        
+        // Check if device has moved at least MIN_DISTANCE_METERS from last sent location
+        const lastSent = lastSentLocationRef.current[device._id];
+        if (lastSent) {
+          const distance = calculateDistanceMeters(
+            lastSent.lat,
+            lastSent.lng,
+            location.latitude,
+            location.longitude
+          );
+          
+          if (distance < MIN_DISTANCE_METERS) {
+            console.log(`[Location] Skipping ${device.name || device._id}: moved only ${Math.round(distance)}m (min: ${MIN_DISTANCE_METERS}m)`);
+            return;
+          }
+        }
         
         try {
           await deviceLocationsAPI.create({
@@ -39,7 +79,14 @@ export function useLocationTracking() {
             accuracy: location.accuracy,
             source: 'gps',
           });
-          console.log(`Location updated for device: ${device.name || device._id}`);
+          
+          // Update last sent location for this device
+          lastSentLocationRef.current[device._id] = {
+            lat: location.latitude,
+            lng: location.longitude,
+          };
+          
+          console.log(`[Location] Updated for device: ${device.name || device._id}`);
         } catch (error) {
           console.error(`Failed to update location for device ${device._id}:`, error);
         }

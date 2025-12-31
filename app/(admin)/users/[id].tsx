@@ -209,8 +209,9 @@ export default function UserDetailsScreen() {
     );
 }
 
-// Icon helper
-const MainIcon = ({ name, size, color }: { name: any, size: number, color: string }) => (
+// Icon helper with proper typing
+type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+const MainIcon = ({ name, size, color }: { name: MaterialIconName, size: number, color: string }) => (
     <MaterialCommunityIcons name={name} size={size} color={color} />
 );
 

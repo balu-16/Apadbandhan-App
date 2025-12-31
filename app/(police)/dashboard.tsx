@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -72,6 +72,11 @@ export default function PoliceDashboard() {
 
   useEffect(() => {
     fetchData();
+    // Auto-refresh every 30 seconds
+    const intervalId = setInterval(() => {
+      fetchData();
+    }, 30000);
+    return () => clearInterval(intervalId);
   }, []);
 
   const fetchData = async () => {
@@ -108,6 +113,15 @@ export default function PoliceDashboard() {
     setSelectedAlert(alert);
     setModalVisible(true);
   };
+
+  const handleUpdateAlertStatus = useCallback(async (alertId: string, newStatus: 'assigned' | 'resolved') => {
+    try {
+      await alertsAPI.updateStatus(alertId, { status: newStatus });
+      fetchData(); // Refresh after status update
+    } catch (error) {
+      console.error('Failed to update alert status:', error);
+    }
+  }, []);
 
   const activeEmergencies = recentAlerts.filter(a => a.status === 'pending' || a.status === 'assigned');
   const fullName = user?.fullName || 'Officer';
@@ -349,6 +363,8 @@ export default function PoliceDashboard() {
         alert={selectedAlert}
         onClose={() => setModalVisible(false)}
         colors={colors}
+        userRole="police"
+        onUpdateStatus={handleUpdateAlertStatus}
       />
     </View>
   );

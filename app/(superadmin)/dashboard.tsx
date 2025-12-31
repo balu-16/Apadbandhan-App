@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
-import { adminAPI, alertsAPI } from '../../src/services/api';
+import { adminAPI, alertsAPI, healthAPI } from '../../src/services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -36,6 +36,19 @@ interface Alert {
   status: string;
   createdAt: string;
   userId?: { fullName?: string };
+}
+
+interface HealthStatus {
+  status: 'ok' | 'error' | 'degraded';
+  uptime?: number;
+  timestamp?: string;
+  mqtt?: {
+    connected: boolean;
+    status: string;
+  };
+  database?: {
+    status: string;
+  };
 }
 
 interface StatCardProps {
@@ -85,8 +98,23 @@ export default function SuperAdminDashboard() {
     resolvedAlerts: 0,
   });
   const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
+  const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isHealthLoading, setIsHealthLoading] = useState(false);
+
+  const fetchHealthStatus = async () => {
+    setIsHealthLoading(true);
+    try {
+      const response = await healthAPI.checkDetailed();
+      setHealthStatus(response.data);
+    } catch (error) {
+      console.error('Failed to fetch health status:', error);
+      setHealthStatus({ status: 'error', timestamp: new Date().toISOString() });
+    } finally {
+      setIsHealthLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -108,12 +136,23 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     fetchData();
+    fetchHealthStatus();
   }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchData();
+    await Promise.all([fetchData(), fetchHealthStatus()]);
     setRefreshing(false);
+  };
+
+  const formatUptime = (seconds?: number) => {
+    if (!seconds) return 'N/A';
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
   };
 
   const fullName = user?.fullName || 'Super Admin';
@@ -186,6 +225,100 @@ export default function SuperAdminDashboard() {
             bgColor="rgba(16, 185, 129, 0.15)"
             onPress={() => router.push('/(superadmin)/alerts')}
           />
+          <StatCard
+            icon="hardware-chip"
+            label="Online Devices"
+            value={stats.onlineDevices}
+            color="#8b5cf6"
+            bgColor="rgba(139, 92, 246, 0.15)"
+            onPress={() => router.push('/(superadmin)/devices')}
+          />
+          <StatCard
+            icon="cloud-offline"
+            label="Offline Devices"
+            value={stats.totalDevices - stats.onlineDevices}
+            color="#6b7280"
+            bgColor="rgba(107, 114, 128, 0.15)"
+            onPress={() => router.push('/(superadmin)/devices')}
+          />
+        </View>
+
+        {/* Your Role Card */}
+        <View style={[styles.roleCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.roleIconBg, { backgroundColor: 'rgba(255,102,0,0.15)' }]}>
+            <Ionicons name="shield-checkmark" size={28} color={colors.primary} />
+          </View>
+          <View style={styles.roleInfo}>
+            <Text style={[styles.roleLabel, { color: colors.textSecondary }]}>Your Role</Text>
+            <Text style={[styles.roleValue, { color: colors.text }]}>Super Admin</Text>
+            <Text style={[styles.roleDescription, { color: colors.textTertiary }]}>Full system access & control</Text>
+          </View>
+        </View>
+
+        {/* System Health Status Section */}
+        <View style={[styles.healthCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.healthHeader}>
+            <View style={styles.healthTitleRow}>
+              <Ionicons name="server" size={20} color="#6b7280" />
+              <Text style={[styles.healthTitle, { color: colors.text }]}>System Health</Text>
+            </View>
+            <TouchableOpacity onPress={fetchHealthStatus} style={styles.refreshBtn}>
+              {isHealthLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons name="refresh" size={18} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.healthGrid}>
+            {/* API Status */}
+            <View style={[styles.healthItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+              <View style={[styles.healthItemIcon, { backgroundColor: healthStatus?.status === 'ok' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)' }]}>
+                <Ionicons
+                  name={healthStatus?.status === 'ok' ? 'checkmark-circle' : 'close-circle'}
+                  size={22}
+                  color={healthStatus?.status === 'ok' ? '#10b981' : '#ef4444'}
+                />
+              </View>
+              <View>
+                <Text style={[styles.healthItemLabel, { color: colors.textSecondary }]}>API Status</Text>
+                <Text style={[styles.healthItemValue, { color: healthStatus?.status === 'ok' ? '#10b981' : '#ef4444' }]}>
+                  {healthStatus?.status === 'ok' ? 'Online' : 'Offline'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Uptime */}
+            <View style={[styles.healthItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+              <View style={[styles.healthItemIcon, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
+                <Ionicons name="time" size={22} color="#3b82f6" />
+              </View>
+              <View>
+                <Text style={[styles.healthItemLabel, { color: colors.textSecondary }]}>Uptime</Text>
+                <Text style={[styles.healthItemValue, { color: colors.text }]}>
+                  {formatUptime(healthStatus?.uptime)}
+                </Text>
+              </View>
+            </View>
+
+            {/* MQTT Status */}
+            <View style={[styles.healthItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+              <View style={[styles.healthItemIcon, { backgroundColor: healthStatus?.mqtt?.connected ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)' }]}>
+                <Ionicons
+                  name={healthStatus?.mqtt?.connected ? 'wifi' : 'wifi-outline'}
+                  size={22}
+                  color={healthStatus?.mqtt?.connected ? '#10b981' : '#f59e0b'}
+                />
+              </View>
+              <View>
+                <Text style={[styles.healthItemLabel, { color: colors.textSecondary }]}>MQTT Service</Text>
+                <Text style={[styles.healthItemValue, { color: healthStatus?.mqtt?.connected ? '#10b981' : '#f59e0b' }]}>
+                  {healthStatus?.mqtt?.connected ? 'Connected' : 'N/A'}
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Recent Alerts Section - Matching Web UI */}
@@ -296,7 +429,7 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 16 },
-  
+
   // Welcome Header
   welcomeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 12 },
   welcomeIcon: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
@@ -311,6 +444,18 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 12, fontWeight: '500', marginBottom: 4 },
   statValue: { fontSize: 28, fontWeight: '700' },
   statIconContainer: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+
+  // System Health Card
+  healthCard: { borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1 },
+  healthHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  healthTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  healthTitle: { fontSize: 18, fontWeight: '600' },
+  refreshBtn: { padding: 8, borderRadius: 8 },
+  healthGrid: { gap: 10 },
+  healthItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12 },
+  healthItemIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  healthItemLabel: { fontSize: 12, marginBottom: 2 },
+  healthItemValue: { fontSize: 16, fontWeight: '700' },
 
   // Recent Alerts Card
   recentAlertsCard: { borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1 },
@@ -340,4 +485,13 @@ const styles = StyleSheet.create({
   quickNavRowLabel: { fontSize: 15, fontWeight: '600' },
   quickNavRowRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   quickNavRowCount: { fontSize: 14, fontWeight: '600' },
+
+  // Role Card
+  roleCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 16, borderWidth: 1, marginBottom: 20 },
+  roleIconBg: { width: 56, height: 56, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  roleInfo: { flex: 1 },
+  roleLabel: { fontSize: 12, fontWeight: '500', marginBottom: 2 },
+  roleValue: { fontSize: 20, fontWeight: '800' },
+  roleDescription: { fontSize: 12, marginTop: 2 },
 });
+

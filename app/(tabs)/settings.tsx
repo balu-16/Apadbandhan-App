@@ -21,17 +21,17 @@ import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { colors, toggleTheme, isDark, setColorScheme } = useTheme();
+  const { colors, toggleTheme, isDark, setColorScheme, isSystem } = useTheme();
   const { user, logout, refreshProfile } = useAuthStore();
   const { showAlert } = useAlert();
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(user?.profilePhoto || null);
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [hospitalPreference, setHospitalPreference] = useState<'government' | 'private'>('government');
+  const [hospitalPreference, setHospitalPreference] = useState<'government' | 'private' | 'both'>('government');
   const [accidentAlerts, setAccidentAlerts] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(true);
   const [locationTracking, setLocationTracking] = useState(true);
@@ -43,7 +43,7 @@ export default function SettingsScreen() {
       setFullName(user.fullName || '');
       setEmail(user.email || '');
       setProfilePhoto(user.profilePhoto || null);
-      setHospitalPreference((user.hospitalPreference as 'government' | 'private') || 'government');
+      setHospitalPreference((user.hospitalPreference as 'government' | 'private' | 'both') || 'government');
       setAccidentAlerts(user.accidentAlerts ?? true);
       setSmsNotifications(user.smsNotifications ?? true);
       setLocationTracking(user.locationTracking ?? true);
@@ -131,7 +131,7 @@ export default function SettingsScreen() {
       icon: 'log-out',
       buttons: [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: async () => { await logout(); router.replace('/(auth)/login'); }},
+        { text: 'Logout', style: 'destructive', onPress: async () => { await logout(); router.replace('/(auth)/login'); } },
       ],
     });
   };
@@ -166,7 +166,7 @@ export default function SettingsScreen() {
           <Ionicons name="person" size={20} color={colors.primary} />
           <Text style={[styles.sectionTitle, { color: colors.text }]}>User Information</Text>
         </View>
-        
+
         <View style={styles.profileRow}>
           <TouchableOpacity onPress={handlePickImage} style={styles.avatarWrapper}>
             {profilePhoto ? (
@@ -242,6 +242,16 @@ export default function SettingsScreen() {
           </View>
         </TouchableOpacity>
 
+        <TouchableOpacity style={[styles.radioOption, hospitalPreference === 'both' && { borderColor: colors.primary, backgroundColor: colors.primaryLight }]} onPress={() => setHospitalPreference('both')}>
+          <View style={[styles.radioCircle, hospitalPreference === 'both' && { borderColor: colors.primary }]}>
+            {hospitalPreference === 'both' && <View style={[styles.radioFill, { backgroundColor: colors.primary }]} />}
+          </View>
+          <View style={styles.radioContent}>
+            <Text style={[styles.radioLabel, { color: colors.text }]}>Any Hospital (Both)</Text>
+            <Text style={[styles.radioDesc, { color: colors.textSecondary }]}>Government & Private - nearest available</Text>
+          </View>
+        </TouchableOpacity>
+
         <TouchableOpacity style={[styles.outlineButton, { borderColor: colors.primary }]} onPress={handleSaveHospitalPreference}>
           <Ionicons name="save-outline" size={18} color={colors.primary} />
           <Text style={[styles.outlineButtonText, { color: colors.primary }]}>Save Preference</Text>
@@ -256,13 +266,17 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.themeRow}>
-          <TouchableOpacity style={[styles.themeOption, !isDark && { borderColor: colors.primary, backgroundColor: colors.primaryLight }]} onPress={() => setColorScheme('light')}>
-            <Ionicons name="sunny" size={24} color={!isDark ? colors.primary : colors.textTertiary} />
-            <Text style={[styles.themeLabel, { color: !isDark ? colors.primary : colors.text }]}>Light</Text>
+          <TouchableOpacity style={[styles.themeOption, !isDark && !isSystem && { borderColor: colors.primary, backgroundColor: colors.primaryLight }]} onPress={() => setColorScheme('light')}>
+            <Ionicons name="sunny" size={24} color={!isDark && !isSystem ? colors.primary : colors.textTertiary} />
+            <Text style={[styles.themeLabel, { color: !isDark && !isSystem ? colors.primary : colors.text }]}>Light</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.themeOption, isDark && { borderColor: colors.primary, backgroundColor: colors.primaryLight }]} onPress={() => setColorScheme('dark')}>
-            <Ionicons name="moon" size={24} color={isDark ? colors.primary : colors.textTertiary} />
-            <Text style={[styles.themeLabel, { color: isDark ? colors.primary : colors.text }]}>Dark</Text>
+          <TouchableOpacity style={[styles.themeOption, isDark && !isSystem && { borderColor: colors.primary, backgroundColor: colors.primaryLight }]} onPress={() => setColorScheme('dark')}>
+            <Ionicons name="moon" size={24} color={isDark && !isSystem ? colors.primary : colors.textTertiary} />
+            <Text style={[styles.themeLabel, { color: isDark && !isSystem ? colors.primary : colors.text }]}>Dark</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.themeOption, isSystem && { borderColor: colors.primary, backgroundColor: colors.primaryLight }]} onPress={() => setColorScheme('system')}>
+            <Ionicons name="phone-portrait" size={24} color={isSystem ? colors.primary : colors.textTertiary} />
+            <Text style={[styles.themeLabel, { color: isSystem ? colors.primary : colors.text }]}>System</Text>
           </TouchableOpacity>
         </View>
       </View>

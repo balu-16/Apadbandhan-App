@@ -124,6 +124,11 @@ export default function AllDevices() {
       d.code?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Calculate stats
+  const totalDevices = devices.length;
+  const onlineDevices = devices.filter(d => d.status === 'online').length;
+  const offlineDevices = devices.filter(d => d.status === 'offline').length;
+
   if (isLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -146,6 +151,37 @@ export default function AllDevices() {
           <Text style={styles.generateBtnText}>Generate</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Stats Cards Row */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScrollView} contentContainerStyle={styles.statsContainer}>
+        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.statIcon, { backgroundColor: '#3b82f615' }]}>
+            <Ionicons name="hardware-chip" size={20} color="#3b82f6" />
+          </View>
+          <View>
+            <Text style={[styles.statValue, { color: colors.text }]}>{totalDevices}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
+          </View>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.statIcon, { backgroundColor: '#10b98115' }]}>
+            <Ionicons name="wifi" size={20} color="#10b981" />
+          </View>
+          <View>
+            <Text style={[styles.statValue, { color: '#10b981' }]}>{onlineDevices}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Online</Text>
+          </View>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.statIcon, { backgroundColor: '#9ca3af15' }]}>
+            <Ionicons name="cloud-offline" size={20} color="#9ca3af" />
+          </View>
+          <View>
+            <Text style={[styles.statValue, { color: '#9ca3af' }]}>{offlineDevices}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Offline</Text>
+          </View>
+        </View>
+      </ScrollView>
 
       <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Ionicons name="search" size={20} color={colors.textTertiary} />
@@ -491,4 +527,11 @@ const styles = StyleSheet.create({
   generateCancelText: { fontSize: 15, fontWeight: '700' },
   generateSubmitBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#ff6600', alignItems: 'center' },
   generateSubmitText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  // Stats Card styles
+  statsScrollView: { marginHorizontal: Spacing['2xl'], marginBottom: Spacing.md },
+  statsContainer: { gap: 10 },
+  statCard: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1, gap: 12 },
+  statIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  statValue: { fontSize: 22, fontWeight: '700' },
+  statLabel: { fontSize: 12, fontWeight: '500' },
 });

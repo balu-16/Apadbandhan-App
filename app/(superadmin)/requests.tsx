@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  ScrollView,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,15 +27,20 @@ interface PartnerRequest {
   phone: string;
   registrationNumber?: string;
   specialization?: string;
+  hospitalType?: 'government' | 'private';
   jurisdiction?: string;
   coverageArea?: string;
   address: string;
   city: string;
   state: string;
   pincode: string;
+  latitude?: number;
+  longitude?: number;
   additionalInfo?: string;
   status: 'pending' | 'approved' | 'rejected';
   reviewNotes?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,7 +66,7 @@ const statusConfig: Record<string, { color: string; bgColor: string; label: stri
 
 export default function SuperAdminRequestsScreen() {
   const { colors, isDark } = useTheme();
-  
+
   const [requests, setRequests] = useState<PartnerRequest[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [filteredRequests, setFilteredRequests] = useState<PartnerRequest[]>([]);
@@ -68,6 +75,7 @@ export default function SuperAdminRequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<PartnerRequest | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
   const [isUpdating, setIsUpdating] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
 
@@ -103,6 +111,9 @@ export default function SuperAdminRequestsScreen() {
     if (filterStatus !== 'all') {
       filtered = filtered.filter((r) => r.status === filterStatus);
     }
+    if (filterType !== 'all') {
+      filtered = filtered.filter((r) => r.partnerType === filterType);
+    }
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -113,7 +124,7 @@ export default function SuperAdminRequestsScreen() {
       );
     }
     setFilteredRequests(filtered);
-  }, [searchQuery, requests, filterStatus]);
+  }, [searchQuery, requests, filterStatus, filterType]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -254,6 +265,29 @@ export default function SuperAdminRequestsScreen() {
         ))}
       </View>
 
+      {/* Type Filter */}
+      <View style={[styles.filtersContainer, { marginTop: 8 }]}>
+        {[
+          { key: 'all', label: 'All Types' },
+          { key: 'hospital', label: 'Hospital' },
+          { key: 'police', label: 'Police' },
+          { key: 'ranger', label: 'Ranger' },
+        ].map((type) => (
+          <TouchableOpacity
+            key={type.key}
+            style={[
+              styles.filterChip,
+              filterType === type.key && { backgroundColor: partnerTypeConfig[type.key]?.color || colors.primary },
+            ]}
+            onPress={() => setFilterType(type.key)}
+          >
+            <Text style={[styles.filterText, { color: filterType === type.key ? '#fff' : colors.textSecondary }]}>
+              {type.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <View style={styles.searchContainer}>
         <View style={[styles.searchBar, { backgroundColor: colors.surface }]}>
           <Ionicons name="search" size={20} color={colors.textTertiary} />
@@ -301,7 +335,8 @@ export default function SuperAdminRequestsScreen() {
               </TouchableOpacity>
             </View>
             {selectedRequest && (
-              <View style={styles.modalBody}>
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                {/* Organization Section */}
                 <View style={styles.detailSection}>
                   <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>ORGANIZATION</Text>
                   <Text style={[styles.orgNameLarge, { color: colors.text }]}>{selectedRequest.organizationName}</Text>
@@ -313,8 +348,9 @@ export default function SuperAdminRequestsScreen() {
                   </View>
                 </View>
 
+                {/* Contact Section */}
                 <View style={styles.detailSection}>
-                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>CONTACT</Text>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>CONTACT INFORMATION</Text>
                   <View style={styles.detailRow}>
                     <Ionicons name="person-outline" size={16} color={colors.textSecondary} />
                     <Text style={[styles.detailText, { color: colors.text }]}>{selectedRequest.contactPerson}</Text>
@@ -327,8 +363,15 @@ export default function SuperAdminRequestsScreen() {
                     <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
                     <Text style={[styles.detailText, { color: colors.text }]}>{selectedRequest.phone}</Text>
                   </View>
+                  {selectedRequest.registrationNumber && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} />
+                      <Text style={[styles.detailText, { color: colors.text }]}>Reg: {selectedRequest.registrationNumber}</Text>
+                    </View>
+                  )}
                 </View>
 
+                {/* Address Section */}
                 <View style={styles.detailSection}>
                   <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>ADDRESS</Text>
                   <View style={styles.detailRow}>
@@ -339,6 +382,78 @@ export default function SuperAdminRequestsScreen() {
                   </View>
                 </View>
 
+                {/* GPS Coordinates Section */}
+                {(selectedRequest.latitude || selectedRequest.longitude) && (
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>GPS COORDINATES</Text>
+                    <View style={{ flexDirection: 'row', gap: 16, marginBottom: 8 }}>
+                      <View style={styles.detailRow}>
+                        <Ionicons name="navigate-outline" size={16} color="#22c55e" />
+                        <Text style={[styles.detailText, { color: colors.text }]}>Lat: {selectedRequest.latitude || 'N/A'}</Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Ionicons name="navigate-outline" size={16} color="#3b82f6" />
+                        <Text style={[styles.detailText, { color: colors.text }]}>Long: {selectedRequest.longitude || 'N/A'}</Text>
+                      </View>
+                    </View>
+                    {selectedRequest.latitude && selectedRequest.longitude && (
+                      <TouchableOpacity
+                        style={[styles.mapButton, { backgroundColor: colors.primary + '20' }]}
+                        onPress={() => Linking.openURL(`https://www.google.com/maps?q=${selectedRequest.latitude},${selectedRequest.longitude}`)}
+                      >
+                        <Ionicons name="map-outline" size={16} color={colors.primary} />
+                        <Text style={[styles.mapButtonText, { color: colors.primary }]}>Open in Google Maps</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                {/* Additional Details Section */}
+                {(selectedRequest.hospitalType || selectedRequest.specialization || selectedRequest.jurisdiction || selectedRequest.coverageArea) && (
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>ADDITIONAL DETAILS</Text>
+                    {selectedRequest.hospitalType && (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="business-outline" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.detailText, { color: colors.text }]}>
+                          Type: <Text style={{ color: selectedRequest.hospitalType === 'government' ? '#3b82f6' : '#22c55e', fontWeight: '600' }}>
+                            {selectedRequest.hospitalType.charAt(0).toUpperCase() + selectedRequest.hospitalType.slice(1)} Hospital
+                          </Text>
+                        </Text>
+                      </View>
+                    )}
+                    {selectedRequest.specialization && (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="medkit-outline" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.detailText, { color: colors.text }]}>Specialization: {selectedRequest.specialization}</Text>
+                      </View>
+                    )}
+                    {selectedRequest.jurisdiction && (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="globe-outline" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.detailText, { color: colors.text }]}>Jurisdiction: {selectedRequest.jurisdiction}</Text>
+                      </View>
+                    )}
+                    {selectedRequest.coverageArea && (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="expand-outline" size={16} color={colors.textSecondary} />
+                        <Text style={[styles.detailText, { color: colors.text }]}>Coverage: {selectedRequest.coverageArea}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* Additional Info Section */}
+                {selectedRequest.additionalInfo && (
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>ADDITIONAL INFORMATION</Text>
+                    <View style={[styles.infoBox, { backgroundColor: colors.surface }]}>
+                      <Text style={[styles.infoBoxText, { color: colors.text }]}>{selectedRequest.additionalInfo}</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Status Section */}
                 <View style={styles.detailSection}>
                   <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>STATUS</Text>
                   <View style={[styles.statusBadgeLarge, { backgroundColor: statusConfig[selectedRequest.status]?.bgColor }]}>
@@ -348,6 +463,49 @@ export default function SuperAdminRequestsScreen() {
                   </View>
                 </View>
 
+                {/* Review Notes Input (for pending requests) */}
+                {selectedRequest.status === 'pending' && (
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>REVIEW NOTES (OPTIONAL)</Text>
+                    <TextInput
+                      style={[styles.reviewNotesInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                      placeholder="Add notes about this request..."
+                      placeholderTextColor={colors.textTertiary}
+                      value={reviewNotes}
+                      onChangeText={setReviewNotes}
+                      multiline
+                      numberOfLines={3}
+                      textAlignVertical="top"
+                    />
+                  </View>
+                )}
+
+                {/* Existing Review Notes (for approved/rejected) */}
+                {selectedRequest.reviewNotes && selectedRequest.status !== 'pending' && (
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>REVIEW NOTES</Text>
+                    <View style={[styles.infoBox, { backgroundColor: colors.surface }]}>
+                      <Text style={[styles.infoBoxText, { color: colors.text }]}>{selectedRequest.reviewNotes}</Text>
+                    </View>
+                    {selectedRequest.reviewedAt && (
+                      <Text style={[styles.timestampText, { color: colors.textTertiary }]}>
+                        Reviewed on {formatDate(selectedRequest.reviewedAt)}
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {/* Timestamps Section */}
+                <View style={[styles.detailSection, { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 }]}>
+                  <Text style={[styles.timestampText, { color: colors.textTertiary }]}>
+                    Submitted: {formatDate(selectedRequest.createdAt)}
+                  </Text>
+                  <Text style={[styles.timestampText, { color: colors.textTertiary }]}>
+                    Updated: {formatDate(selectedRequest.updatedAt)}
+                  </Text>
+                </View>
+
+                {/* Action Buttons */}
                 {selectedRequest.status === 'pending' && (
                   <View style={styles.actionButtons}>
                     <TouchableOpacity
@@ -388,7 +546,9 @@ export default function SuperAdminRequestsScreen() {
                   <Ionicons name="trash-outline" size={18} color={colors.error} />
                   <Text style={[styles.deleteBtnText, { color: colors.error }]}>Delete Request</Text>
                 </TouchableOpacity>
-              </View>
+
+                <View style={{ height: 30 }} />
+              </ScrollView>
             )}
           </View>
         </View>
@@ -451,4 +611,10 @@ const styles = StyleSheet.create({
   actionBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8, marginTop: 12 },
   deleteBtnText: { fontSize: 15, fontWeight: '600' },
+  mapButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, gap: 8 },
+  mapButtonText: { fontSize: 14, fontWeight: '600' },
+  infoBox: { padding: 12, borderRadius: 10 },
+  infoBoxText: { fontSize: 14, lineHeight: 20 },
+  reviewNotesInput: { padding: 12, borderRadius: 10, borderWidth: 1, fontSize: 14, minHeight: 80 },
+  timestampText: { fontSize: 11, fontWeight: '500' },
 });

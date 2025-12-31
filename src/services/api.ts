@@ -8,7 +8,8 @@ export interface UserProfile {
   phone: string;
   role: 'user' | 'admin' | 'superadmin' | 'police' | 'hospital';
   profilePhoto?: string;
-  hospitalPreference?: string;
+  hospitalPreference?: 'government' | 'private' | 'both';
+  hospitalType?: 'government' | 'private'; // For hospital role users
   accidentAlerts?: boolean;
   smsNotifications?: boolean;
   locationTracking?: boolean;
@@ -20,6 +21,8 @@ export interface UserProfile {
     relation: string;
     phone: string;
   }>;
+  onDuty?: boolean; // For police/hospital role users
+  specialization?: string; // For hospital role users
 }
 
 // ... existing interfaces ...
@@ -90,12 +93,9 @@ api.interceptors.request.use(async (config) => {
     const token = await SecureStore.getItemAsync('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('API Request:', config.method?.toUpperCase(), config.url, '(Auth token attached)');
-    } else {
-      console.warn('API Request:', config.method?.toUpperCase(), config.url, '(No auth token!)');
     }
   } catch (error) {
-    console.error('Error getting auth token:', error);
+    // Silently handle token retrieval errors
   }
   return config;
 });
@@ -126,7 +126,7 @@ export const usersAPI = {
   uploadProfilePhoto: (id: string, file: { uri: string; type: string; name: string }) => {
     const formData = new FormData();
     formData.append('photo', file as any);
-    return api.post(`/users/${id}/photo`, formData, {
+    return api.post(`/users/${id}/profile-photo`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
@@ -156,6 +156,8 @@ export const alertsAPI = {
   create: (data: AlertData) => api.post('/alerts', data),
   updateStatus: (id: string, data: { status: string; notes?: string }) =>
     api.patch(`/alerts/${id}/status`, data),
+  delete: (id: string, source: 'alert' | 'sos' = 'alert') =>
+    api.delete(`/alerts/${id}`, { params: { source } }),
 };
 
 export const deviceLocationsAPI = {
@@ -175,6 +177,25 @@ export const deviceLocationsAPI = {
     source?: string;
     isSOS?: boolean;
   }) => api.post('/device-locations/browser', data),
+
+  // Record multiple locations in batch
+  createBatch: (locations: Array<{
+    deviceId: string;
+    latitude: number;
+    longitude: number;
+    altitude?: number;
+    speed?: number;
+    heading?: number;
+    accuracy?: number;
+    address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    country?: string;
+    source?: string;
+    isSOS?: boolean;
+  }>) => api.post('/device-locations/batch', locations),
+
   getByDevice: (
     deviceId: string,
     params?: {
@@ -185,6 +206,12 @@ export const deviceLocationsAPI = {
     }
   ) => api.get(`/device-locations/device/${deviceId}`, { params }),
   getLatest: (deviceId: string) => api.get(`/device-locations/device/${deviceId}/latest`),
+
+  // Get location statistics for a device
+  getStats: (deviceId: string) => api.get(`/device-locations/device/${deviceId}/stats`),
+
+  // Delete all locations for a device
+  deleteByDevice: (deviceId: string) => api.delete(`/device-locations/device/${deviceId}`),
 };
 
 export const qrCodesAPI = {
@@ -194,6 +221,7 @@ export const qrCodesAPI = {
   validateCode: (code: string) => api.get(`/qrcodes/validate/${code}`),
   getById: (id: string) => api.get(`/qrcodes/${id}`),
   getImageUrl: (code: string) => `${API_BASE_URL}/qrcodes/image/${code}`,
+  getImageUrlById: (id: string) => `${API_BASE_URL}/qrcodes/${id}/qr`,
   create: (data: { deviceCode: string; deviceName?: string }) =>
     api.post('/qrcodes/create', data),
   generateRandom: (count: number = 10) =>
@@ -202,6 +230,25 @@ export const qrCodesAPI = {
     api.post('/qrcodes/assign', { deviceCode, userId }),
   unassign: (code: string) => api.post(`/qrcodes/unassign/${code}`),
   delete: (id: string) => api.delete(`/qrcodes/${id}`),
+
+  // Upload QR image by ID
+  uploadImage: (deviceId: string, file: { uri: string; type: string; name: string }) => {
+    const formData = new FormData();
+    formData.append('deviceId', deviceId);
+    formData.append('qrImage', file as any);
+    return api.post('/qrcodes/upload-qr', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+
+  // Upload QR image by device code
+  uploadImageByCode: (code: string, file: { uri: string; type: string; name: string }) => {
+    const formData = new FormData();
+    formData.append('qrImage', file as any);
+    return api.post(`/qrcodes/upload-qr/${code}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
 };
 
 export const adminAPI = {
@@ -259,6 +306,10 @@ export const adminAPI = {
 };
 
 export const policeAPI = {
+  // Update profile (onDuty, etc)
+  updateProfile: (data: { isActive?: boolean; onDuty?: boolean; fullName?: string }) =>
+    api.patch('/police/profile', data),
+
   getStats: () => api.get('/police/stats'),
   getAllUsers: () => api.get('/police/users'),
   getAlerts: (params?: { status?: string; limit?: number }) =>
@@ -267,9 +318,26 @@ export const policeAPI = {
   updateAlertStatus: (alertId: string, status: string, notes?: string) =>
     api.patch(`/police/alerts/${alertId}`, { status, notes }),
   getAllAlerts: () => api.get('/police/alerts'),
+
+  // Location tracking
+  updateLocation: (data: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    altitude?: number;
+    speed?: number;
+    heading?: number;
+  }) => api.post('/police/location', data),
+
+  getLocationHistory: () => api.get('/police/location/history'),
+  getLastLocation: () => api.get('/police/location/last'),
 };
 
 export const hospitalAPI = {
+  // Update profile (onDuty, etc)
+  updateProfile: (data: { isActive?: boolean; onDuty?: boolean; fullName?: string }) =>
+    api.patch('/hospital/profile', data),
+
   getStats: () => api.get('/hospital/stats'),
   getAllUsers: () => api.get('/hospital/users'),
   getAlerts: (params?: { status?: string; limit?: number }) =>
@@ -278,6 +346,19 @@ export const hospitalAPI = {
   updateAlertStatus: (alertId: string, status: string, notes?: string) =>
     api.patch(`/hospital/alerts/${alertId}`, { status, notes }),
   getAllAlerts: () => api.get('/hospital/alerts'),
+
+  // Location tracking
+  updateLocation: (data: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    altitude?: number;
+    speed?: number;
+    heading?: number;
+  }) => api.post('/hospital/location', data),
+
+  getLocationHistory: () => api.get('/hospital/location/history'),
+  getLastLocation: () => api.get('/hospital/location/last'),
 };
 
 // Health API (for monitoring)
@@ -340,6 +421,14 @@ export const sosAPI = {
   // Get all active SOS events (admin/responder)
   getActive: () =>
     api.get('/sos/active'),
+
+  // Respond to SOS event (police/hospital)
+  respond: (sosId: string) =>
+    api.post(`/sos/respond/${sosId}`),
+
+  // Get responders info for an SOS event
+  getResponders: (sosId: string) =>
+    api.get(`/sos/responders/${sosId}`),
 };
 
 // On-Duty API (for police/hospital responders)
@@ -361,6 +450,35 @@ export const onDutyAPI = {
   // Get current on-duty status
   getStatus: () =>
     api.get('/on-duty/status'),
+};
+
+// System Config API (superadmin only)
+export interface SystemConfig {
+  id: string;
+  configKey: string;
+  maxPoliceAlertRecipients: number;
+  maxHospitalAlertRecipients: number;
+  defaultSearchRadiusMeters: number;
+  maxSearchRadiusMeters: number;
+  lastUpdatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const systemConfigAPI = {
+  // Get system configuration
+  getConfig: () => api.get<SystemConfig>('/system-config'),
+
+  // Get alert recipient limits
+  getAlertLimits: () => api.get<{ maxPolice: number; maxHospital: number }>('/system-config/alert-limits'),
+
+  // Update system configuration (superadmin only)
+  updateConfig: (data: {
+    maxPoliceAlertRecipients?: number;
+    maxHospitalAlertRecipients?: number;
+    defaultSearchRadiusMeters?: number;
+    maxSearchRadiusMeters?: number;
+  }) => api.patch<SystemConfig>('/system-config', data),
 };
 
 // Partners API

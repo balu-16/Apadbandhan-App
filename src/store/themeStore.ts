@@ -2,22 +2,40 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appearance, ColorSchemeName } from 'react-native';
 
+type ThemeMode = 'light' | 'dark' | 'system';
+
 interface ThemeState {
+  themeMode: ThemeMode;
   colorScheme: ColorSchemeName;
-  setColorScheme: (scheme: ColorSchemeName) => void;
+  setColorScheme: (scheme: ThemeMode) => void;
   toggleTheme: () => void;
   loadStoredTheme: () => Promise<void>;
+  isSystem: boolean;
 }
 
-export const useThemeStore = create<ThemeState>((set, get) => ({
-  colorScheme: Appearance.getColorScheme() || 'light',
+const getEffectiveColorScheme = (mode: ThemeMode): ColorSchemeName => {
+  if (mode === 'system') {
+    return Appearance.getColorScheme() || 'light';
+  }
+  return mode;
+};
 
-  setColorScheme: async (scheme: ColorSchemeName) => {
-    set({ colorScheme: scheme });
+export const useThemeStore = create<ThemeState>((set, get) => ({
+  themeMode: 'system',
+  colorScheme: Appearance.getColorScheme() || 'light',
+  isSystem: true,
+
+  setColorScheme: async (mode: ThemeMode) => {
+    const effectiveScheme = getEffectiveColorScheme(mode);
+    set({
+      themeMode: mode,
+      colorScheme: effectiveScheme,
+      isSystem: mode === 'system'
+    });
     try {
-      await AsyncStorage.setItem('theme', scheme || 'light');
-    } catch (error) {
-      console.error('Error saving theme:', error);
+      await AsyncStorage.setItem('theme', mode);
+    } catch {
+      // Silently handle storage errors
     }
   },
 
@@ -31,10 +49,16 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     try {
       const storedTheme = await AsyncStorage.getItem('theme');
       if (storedTheme) {
-        set({ colorScheme: storedTheme as ColorSchemeName });
+        const mode = storedTheme as ThemeMode;
+        const effectiveScheme = getEffectiveColorScheme(mode);
+        set({
+          themeMode: mode,
+          colorScheme: effectiveScheme,
+          isSystem: mode === 'system'
+        });
       }
-    } catch (error) {
-      console.error('Error loading theme:', error);
+    } catch {
+      // Silently handle storage errors
     }
   },
 }));

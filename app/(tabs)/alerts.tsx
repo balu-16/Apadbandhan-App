@@ -9,11 +9,12 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
-import { sosAPI } from '../../src/services/api';
+import { sosAPI, alertsAPI } from '../../src/services/api';
 
 interface SosEvent {
   _id: string;
@@ -49,6 +50,32 @@ export default function UserAlertsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = (alertId: string) => {
+    Alert.alert(
+      'Delete Alert',
+      'Are you sure you want to delete this alert?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingId(alertId);
+            try {
+              await alertsAPI.delete(alertId, 'sos');
+              fetchAlerts();
+            } catch (error) {
+              console.error('Failed to delete alert:', error);
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -160,6 +187,29 @@ export default function UserAlertsScreen() {
             </Text>
           </View>
         )}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity 
+            style={styles.viewBtn}
+            onPress={() => setSelectedAlert(item)}
+          >
+            <Ionicons name="eye-outline" size={16} color="#3b82f6" />
+            <Text style={styles.viewBtnText}>View</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.deleteBtn}
+            onPress={() => handleDelete(item._id)}
+            disabled={deletingId === item._id}
+          >
+            {deletingId === item._id ? (
+              <ActivityIndicator size="small" color="#ef4444" />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                <Text style={styles.deleteBtnText}>Delete</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -321,6 +371,11 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
   locationText: { fontSize: 13, flex: 1 },
+  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 12, justifyContent: 'flex-end' },
+  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#3b82f620' },
+  viewBtnText: { fontSize: 12, fontWeight: '600', color: '#3b82f6' },
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#ef444420' },
+  deleteBtnText: { fontSize: 12, fontWeight: '600', color: '#ef4444' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
   emptyTitle: { fontSize: 18, fontWeight: '700', marginTop: 16 },
   emptyText: { fontSize: 14, marginTop: 4, textAlign: 'center' },

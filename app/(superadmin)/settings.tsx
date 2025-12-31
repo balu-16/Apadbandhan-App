@@ -8,6 +8,7 @@ import {
   Switch,
   Image,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,7 +18,7 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useAlert } from '../../src/hooks/useAlert';
-import { usersAPI } from '../../src/services/api';
+import { usersAPI, systemConfigAPI } from '../../src/services/api';
 
 export default function SuperAdminSettings() {
   const router = useRouter();
@@ -29,11 +30,134 @@ export default function SuperAdminSettings() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(user?.profilePhoto || null);
 
+  // Alert configuration state
+  const [maxPoliceAlerts, setMaxPoliceAlerts] = useState<string>('5');
+  const [maxHospitalAlerts, setMaxHospitalAlerts] = useState<string>('5');
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+  // Profile editing state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editFullName, setEditFullName] = useState(user?.fullName || '');
+  const [editEmail, setEditEmail] = useState(user?.email || '');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Notification settings
+  const [accidentAlertsEnabled, setAccidentAlertsEnabled] = useState(true);
+  const [smsNotificationsEnabled, setSmsNotificationsEnabled] = useState(true);
+  const [locationTrackingEnabled, setLocationTrackingEnabled] = useState(true);
+
   useEffect(() => {
     if (user) {
       setProfilePhoto(user.profilePhoto || null);
+      setEditFullName(user.fullName || '');
+      setEditEmail(user.email || '');
     }
   }, [user]);
+
+  // Load system configuration on mount
+  useEffect(() => {
+    loadSystemConfig();
+  }, []);
+
+  const loadSystemConfig = async () => {
+    try {
+      setIsLoadingConfig(true);
+      const response = await systemConfigAPI.getConfig();
+      const config = response.data;
+      setMaxPoliceAlerts(String(config.maxPoliceAlertRecipients || 5));
+      setMaxHospitalAlerts(String(config.maxHospitalAlertRecipients || 5));
+    } catch (error) {
+      console.error('Failed to load system config:', error);
+      // Use defaults if config fails to load
+      setMaxPoliceAlerts('5');
+      setMaxHospitalAlerts('5');
+    } finally {
+      setIsLoadingConfig(false);
+    }
+  };
+
+  const handleSaveAlertConfig = async () => {
+    const policeLimit = parseInt(maxPoliceAlerts, 10);
+    const hospitalLimit = parseInt(maxHospitalAlerts, 10);
+
+    if (isNaN(policeLimit) || policeLimit < 1 || policeLimit > 50) {
+      showAlert({ title: 'Invalid Value', message: 'Police alert limit must be between 1 and 50', icon: 'alert-circle', buttons: [{ text: 'OK', style: 'default' }] });
+      return;
+    }
+    if (isNaN(hospitalLimit) || hospitalLimit < 1 || hospitalLimit > 50) {
+      showAlert({ title: 'Invalid Value', message: 'Hospital alert limit must be between 1 and 50', icon: 'alert-circle', buttons: [{ text: 'OK', style: 'default' }] });
+      return;
+    }
+
+    try {
+      setIsSavingConfig(true);
+      await systemConfigAPI.updateConfig({
+        maxPoliceAlertRecipients: policeLimit,
+        maxHospitalAlertRecipients: hospitalLimit,
+      });
+      showAlert({ title: 'Success', message: 'Alert configuration saved successfully', icon: 'checkmark-circle', buttons: [{ text: 'OK', style: 'default' }] });
+    } catch (error: any) {
+      console.error('Failed to save config:', error);
+      showAlert({ title: 'Error', message: 'Failed to save configuration', icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editFullName.trim()) {
+      showAlert({ title: 'Error', message: 'Full name cannot be empty', icon: 'alert-circle', buttons: [{ text: 'OK', style: 'default' }] });
+      return;
+    }
+    if (!editEmail.trim() || !editEmail.includes('@')) {
+      showAlert({ title: 'Error', message: 'Please enter a valid email', icon: 'alert-circle', buttons: [{ text: 'OK', style: 'default' }] });
+      return;
+    }
+    if (!user?.id) {
+      showAlert({ title: 'Error', message: 'User session not found', icon: 'alert-circle', buttons: [{ text: 'OK', style: 'default' }] });
+      return;
+    }
+
+    try {
+      setIsSavingProfile(true);
+      await usersAPI.updateProfile(user.id, { fullName: editFullName.trim(), email: editEmail.trim() });
+      await refreshProfile();
+      setIsEditingProfile(false);
+      showAlert({ title: 'Success', message: 'Profile updated successfully', icon: 'checkmark-circle', buttons: [{ text: 'OK', style: 'default' }] });
+    } catch (error: any) {
+      console.error('Failed to update profile:', error);
+      showAlert({ title: 'Error', message: error.response?.data?.message || 'Failed to update profile', icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    if (!user?.id) return;
+
+    showAlert({
+      title: 'Delete Account',
+      message: 'Are you absolutely sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.',
+      icon: 'warning',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await usersAPI.deleteAccount(user.id);
+              logout();
+              router.replace('/login');
+            } catch (error) {
+              showAlert({ title: 'Error', message: 'Failed to delete account', icon: 'close-circle', buttons: [{ text: 'OK', style: 'destructive' }] });
+            }
+          },
+        },
+      ],
+    });
+  };
 
   const handlePickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -95,7 +219,7 @@ export default function SuperAdminSettings() {
 
   const firstName = user?.fullName?.split(' ')[0] || 'Super Admin';
 
-  type SettingItem = 
+  type SettingItem =
     | { icon: string; label: string; subtitle?: string; onPress: () => void; isSwitch?: false }
     | { icon: string; label: string; subtitle?: string; isSwitch: true; value: boolean; onToggle: () => void };
 
@@ -108,9 +232,9 @@ export default function SuperAdminSettings() {
     {
       title: 'Account',
       items: [
-        { icon: 'person', label: 'Profile', subtitle: user?.email || undefined, onPress: () => {} },
-        { icon: 'key', label: 'Change Password', onPress: () => {} },
-        { icon: 'shield-checkmark', label: 'Security', onPress: () => {} },
+        { icon: 'person', label: 'Profile', subtitle: user?.email || undefined, onPress: () => { } },
+        { icon: 'key', label: 'Change Password', onPress: () => { } },
+        { icon: 'shield-checkmark', label: 'Security', onPress: () => { } },
       ],
     },
     {
@@ -125,26 +249,47 @@ export default function SuperAdminSettings() {
         },
         {
           icon: 'notifications',
-          label: 'Notifications',
+          label: 'Push Notifications',
           isSwitch: true,
           value: notificationsEnabled,
           onToggle: () => setNotificationsEnabled(!notificationsEnabled),
+        },
+        {
+          icon: 'car',
+          label: 'Accident Alerts',
+          isSwitch: true,
+          value: accidentAlertsEnabled,
+          onToggle: () => setAccidentAlertsEnabled(!accidentAlertsEnabled),
+        },
+        {
+          icon: 'chatbubble',
+          label: 'SMS Notifications',
+          isSwitch: true,
+          value: smsNotificationsEnabled,
+          onToggle: () => setSmsNotificationsEnabled(!smsNotificationsEnabled),
+        },
+        {
+          icon: 'location',
+          label: 'Location Tracking',
+          isSwitch: true,
+          value: locationTrackingEnabled,
+          onToggle: () => setLocationTrackingEnabled(!locationTrackingEnabled),
         },
       ],
     },
     {
       title: 'System',
       items: [
-        { icon: 'server', label: 'System Health', onPress: () => {} },
-        { icon: 'analytics', label: 'Analytics', onPress: () => {} },
-        { icon: 'document-text', label: 'Audit Logs', onPress: () => {} },
+        { icon: 'server', label: 'System Health', onPress: () => { } },
+        { icon: 'analytics', label: 'Analytics', onPress: () => { } },
+        { icon: 'document-text', label: 'Audit Logs', onPress: () => { } },
       ],
     },
     {
       title: 'Support',
       items: [
-        { icon: 'help-circle', label: 'Help Center', onPress: () => {} },
-        { icon: 'information-circle', label: 'About', subtitle: 'Version 1.0.0', onPress: () => {} },
+        { icon: 'help-circle', label: 'Help Center', onPress: () => { } },
+        { icon: 'information-circle', label: 'About', subtitle: 'Version 1.0.0', onPress: () => { } },
       ],
     },
   ];
@@ -223,6 +368,106 @@ export default function SuperAdminSettings() {
           </View>
         ))}
 
+        {/* Alert Configuration Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Alert Configuration</Text>
+          <View style={[styles.sectionContent, { backgroundColor: colors.surface, padding: 16 }]}>
+            <Text style={[styles.alertConfigDescription, { color: colors.textSecondary }]}>
+              Control how many responders receive SOS/accident alerts. Only the nearest responders within the search radius will be notified.
+            </Text>
+
+            {isLoadingConfig ? (
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 20 }} />
+            ) : (
+              <>
+                {/* Police Alert Limit */}
+                <View style={styles.alertConfigRow}>
+                  <View style={[styles.iconContainer, { backgroundColor: '#3b82f615' }]}>
+                    <Ionicons name="shield" size={20} color="#3b82f6" />
+                  </View>
+                  <View style={styles.alertConfigInfo}>
+                    <Text style={[styles.itemLabel, { color: colors.text }]}>Police Alert Limit</Text>
+                    <Text style={[styles.itemSubtitle, { color: colors.textTertiary }]}>
+                      Max nearest police to notify
+                    </Text>
+                  </View>
+                  <TextInput
+                    style={[styles.alertConfigInput, {
+                      backgroundColor: colors.background,
+                      color: colors.text,
+                      borderColor: colors.border
+                    }]}
+                    value={maxPoliceAlerts}
+                    onChangeText={setMaxPoliceAlerts}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    placeholder="5"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+
+                {/* Hospital Alert Limit */}
+                <View style={[styles.alertConfigRow, { marginTop: 16 }]}>
+                  <View style={[styles.iconContainer, { backgroundColor: '#ef444415' }]}>
+                    <Ionicons name="medkit" size={20} color="#ef4444" />
+                  </View>
+                  <View style={styles.alertConfigInfo}>
+                    <Text style={[styles.itemLabel, { color: colors.text }]}>Hospital Alert Limit</Text>
+                    <Text style={[styles.itemSubtitle, { color: colors.textTertiary }]}>
+                      Max nearest hospitals to notify
+                    </Text>
+                  </View>
+                  <TextInput
+                    style={[styles.alertConfigInput, {
+                      backgroundColor: colors.background,
+                      color: colors.text,
+                      borderColor: colors.border
+                    }]}
+                    value={maxHospitalAlerts}
+                    onChangeText={setMaxHospitalAlerts}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    placeholder="5"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+
+                {/* Save Button */}
+                <TouchableOpacity
+                  style={[styles.saveConfigButton, { backgroundColor: colors.primary }]}
+                  onPress={handleSaveAlertConfig}
+                  disabled={isSavingConfig}
+                >
+                  {isSavingConfig ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="save" size={18} color="#fff" />
+                      <Text style={styles.saveConfigButtonText}>Save Configuration</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+        {/* Danger Zone */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: '#ef4444' }]}>Danger Zone</Text>
+          <View style={[styles.sectionContent, { backgroundColor: colors.surface, padding: 16 }]}>
+            <Text style={[styles.alertConfigDescription, { color: colors.textSecondary }]}>
+              Once you delete your account, there is no going back. Please be certain.
+            </Text>
+            <TouchableOpacity
+              style={[styles.deleteAccountButton]}
+              onPress={handleDeleteAccount}
+            >
+              <Ionicons name="trash" size={18} color="#ef4444" />
+              <Text style={styles.deleteAccountText}>Delete Account</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <TouchableOpacity
           style={[styles.logoutButton, { backgroundColor: 'rgba(239,68,68,0.1)' }]}
           onPress={handleLogout}
@@ -262,4 +507,12 @@ const styles = StyleSheet.create({
   itemSubtitle: { fontSize: 13, marginTop: 2 },
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 16, gap: 10, marginTop: 8 },
   logoutText: { color: '#ef4444', fontSize: 16, fontWeight: '700' },
+  alertConfigDescription: { fontSize: 13, lineHeight: 18, marginBottom: 16 },
+  alertConfigRow: { flexDirection: 'row', alignItems: 'center' },
+  alertConfigInfo: { flex: 1 },
+  alertConfigInput: { width: 60, height: 44, borderRadius: 10, borderWidth: 1, textAlign: 'center', fontSize: 18, fontWeight: '700' },
+  saveConfigButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 12, gap: 8, marginTop: 20 },
+  saveConfigButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  deleteAccountButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 12, borderWidth: 2, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.05)', gap: 8 },
+  deleteAccountText: { color: '#ef4444', fontSize: 15, fontWeight: '700' },
 });

@@ -144,6 +144,10 @@ export default function AdminsManagement() {
             <Ionicons name="shield" size={12} color="#ff7a1a" />
             <Text style={[styles.badgeText, { color: '#ff7a1a' }]}>Admin</Text>
           </View>
+          <View style={[styles.badge, { backgroundColor: item.isActive ? 'rgba(16,185,129,0.15)' : 'rgba(107,114,128,0.15)' }]}>
+            <View style={[styles.statusDot, { backgroundColor: item.isActive ? '#10b981' : '#6b7280' }]} />
+            <Text style={[styles.badgeText, { color: item.isActive ? '#10b981' : '#6b7280' }]}>{item.isActive ? 'Active' : 'Inactive'}</Text>
+          </View>
           <Text style={[styles.dateText, { color: colors.textTertiary }]}>
             {formatDate(item.createdAt)}
           </Text>
@@ -339,6 +343,7 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, gap: 4 },
   badgeText: { fontSize: 11, fontWeight: '600' },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
   dateText: { fontSize: 11 },
   deleteBtn: { padding: 8 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },

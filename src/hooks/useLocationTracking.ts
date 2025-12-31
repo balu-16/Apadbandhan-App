@@ -83,8 +83,13 @@ export function useLocationTracking() {
       await updateDeviceLocations(locationData);
 
       return locationData;
-    } catch (error) {
-      console.error('Error getting location:', error);
+    } catch (error: any) {
+      // Silently handle location unavailable errors (common in emulators/dev)
+      if (error?.message?.includes('location') || error?.code === 'E_LOCATION_UNAVAILABLE') {
+        console.log('Location services unavailable - skipping location update');
+      } else {
+        console.error('Error getting location:', error);
+      }
       return null;
     }
   }, [updateDeviceLocations]);
@@ -118,8 +123,13 @@ export function useLocationTracking() {
           await updateDeviceLocations(locationData);
         }
       );
-    } catch (error) {
-      console.error('Error starting location tracking:', error);
+    } catch (error: any) {
+      // Silently handle location unavailable errors (common in emulators/dev)
+      if (error?.message?.includes('location') || error?.code === 'E_LOCATION_UNAVAILABLE') {
+        console.log('Location tracking unavailable - will retry when available');
+      } else {
+        console.error('Error starting location tracking:', error);
+      }
     }
   }, [updateDeviceLocations]);
 

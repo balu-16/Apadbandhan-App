@@ -201,6 +201,19 @@ export default function TabLayout() {
               ),
             }}
           />
+          {/* Hidden routes - not shown in tab bar */}
+          <Tabs.Screen
+            name="devices/[id]"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="devices/edit-device"
+            options={{
+              href: null,
+            }}
+          />
         </Tabs>
       </Animated.View>
     </GestureDetector>

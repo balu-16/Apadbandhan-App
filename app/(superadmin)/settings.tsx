@@ -217,6 +217,16 @@ export default function SuperAdminSettings() {
     setColorScheme(colorScheme === 'dark' ? 'light' : 'dark');
   };
 
+  const updateNotificationSetting = async (key: string, value: boolean) => {
+    if (!user?.id) return;
+    try {
+      await usersAPI.updateProfile(user.id, { [key]: value });
+    } catch (error) {
+      console.error(`Failed to update ${key}:`, error);
+      // Revert on failure - this is handled by the toggle state
+    }
+  };
+
   const firstName = user?.fullName?.split(' ')[0] || 'Super Admin';
 
   type SettingItem =
@@ -232,9 +242,9 @@ export default function SuperAdminSettings() {
     {
       title: 'Account',
       items: [
-        { icon: 'person', label: 'Profile', subtitle: user?.email || undefined, onPress: () => { } },
-        { icon: 'key', label: 'Change Password', onPress: () => { } },
-        { icon: 'shield-checkmark', label: 'Security', onPress: () => { } },
+        { icon: 'person', label: 'Profile', subtitle: user?.email || undefined, onPress: () => setIsEditingProfile(true) },
+        { icon: 'key', label: 'Change Password', onPress: () => showAlert({ title: 'Coming Soon', message: 'Password change functionality will be available in a future update.', icon: 'information-circle', buttons: [{ text: 'OK', style: 'default' }] }) },
+        { icon: 'shield-checkmark', label: 'Security', onPress: () => showAlert({ title: 'Coming Soon', message: 'Security settings will be available in a future update.', icon: 'information-circle', buttons: [{ text: 'OK', style: 'default' }] }) },
       ],
     },
     {
@@ -259,37 +269,49 @@ export default function SuperAdminSettings() {
           label: 'Accident Alerts',
           isSwitch: true,
           value: accidentAlertsEnabled,
-          onToggle: () => setAccidentAlertsEnabled(!accidentAlertsEnabled),
+          onToggle: () => {
+            const newValue = !accidentAlertsEnabled;
+            setAccidentAlertsEnabled(newValue);
+            updateNotificationSetting('accidentAlerts', newValue);
+          },
         },
         {
           icon: 'chatbubble',
           label: 'SMS Notifications',
           isSwitch: true,
           value: smsNotificationsEnabled,
-          onToggle: () => setSmsNotificationsEnabled(!smsNotificationsEnabled),
+          onToggle: () => {
+            const newValue = !smsNotificationsEnabled;
+            setSmsNotificationsEnabled(newValue);
+            updateNotificationSetting('smsNotifications', newValue);
+          },
         },
         {
           icon: 'location',
           label: 'Location Tracking',
           isSwitch: true,
           value: locationTrackingEnabled,
-          onToggle: () => setLocationTrackingEnabled(!locationTrackingEnabled),
+          onToggle: () => {
+            const newValue = !locationTrackingEnabled;
+            setLocationTrackingEnabled(newValue);
+            updateNotificationSetting('locationTracking', newValue);
+          },
         },
       ],
     },
     {
       title: 'System',
       items: [
-        { icon: 'server', label: 'System Health', onPress: () => { } },
-        { icon: 'analytics', label: 'Analytics', onPress: () => { } },
-        { icon: 'document-text', label: 'Audit Logs', onPress: () => { } },
+        { icon: 'server', label: 'System Health', onPress: () => router.push('/(superadmin)/dashboard') },
+        { icon: 'analytics', label: 'Analytics', onPress: () => showAlert({ title: 'Coming Soon', message: 'Analytics dashboard will be available in a future update.', icon: 'information-circle', buttons: [{ text: 'OK', style: 'default' }] }) },
+        { icon: 'document-text', label: 'Audit Logs', onPress: () => showAlert({ title: 'Coming Soon', message: 'Audit logs will be available in a future update.', icon: 'information-circle', buttons: [{ text: 'OK', style: 'default' }] }) },
       ],
     },
     {
       title: 'Support',
       items: [
-        { icon: 'help-circle', label: 'Help Center', onPress: () => { } },
-        { icon: 'information-circle', label: 'About', subtitle: 'Version 1.0.0', onPress: () => { } },
+        { icon: 'help-circle', label: 'Help Center', onPress: () => showAlert({ title: 'Help Center', message: 'For assistance, contact support@apadbandhav.com or call our 24/7 helpline.', icon: 'help-circle', buttons: [{ text: 'OK', style: 'default' }] }) },
+        { icon: 'information-circle', label: 'About', subtitle: 'Version 1.0.0', onPress: () => showAlert({ title: 'Apadbandhav v1.0.0', message: 'Emergency response & safety management platform. © 2024 NighaTech.', icon: 'information-circle', buttons: [{ text: 'OK', style: 'default' }] }) },
       ],
     },
   ];

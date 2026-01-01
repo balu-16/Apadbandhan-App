@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { alertsAPI } from '../../src/services/api';
+import { useAllItems } from '../../src/hooks/useInfiniteList';
+import { ListFooter } from '../../src/components/ListFooter';
+import { useDebouncedValue } from '../../src/hooks/useDebouncedValue';
 
 interface AlertItem {
   _id: string;
@@ -34,14 +37,36 @@ interface AlertItem {
 
 export default function AlertsManagement() {
   const { colors, isDark } = useTheme();
-  const [alerts, setAlerts] = useState<AlertItem[]>([]);
-  const [filteredAlerts, setFilteredAlerts] = useState<AlertItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const {
+    data: alerts,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    onEndReached,
+    refetch,
+  } = useAllItems<AlertItem>({
+    queryKey: ['alerts'],
+    fetchFn: (params) => alertsAPI.getAll({ ...params, status: filterStatus !== 'all' ? filterStatus : undefined }),
+    search: debouncedSearch,
+    extraParams: { status: filterStatus !== 'all' ? filterStatus : undefined },
+  });
+
+  const filteredAlerts = useMemo(() => {
+    if (!debouncedSearch.trim()) return alerts;
+    const query = debouncedSearch.toLowerCase();
+    return alerts.filter(
+      (a) =>
+        a.type?.toLowerCase().includes(query) ||
+        a.userName?.toLowerCase().includes(query) ||
+        a.location?.address?.toLowerCase().includes(query)
+    );
+  }, [alerts, debouncedSearch]);
 
   const handleDelete = (alertId: string, source: 'alert' | 'sos' = 'alert') => {
     Alert.alert(
@@ -56,7 +81,7 @@ export default function AlertsManagement() {
             setDeletingId(alertId);
             try {
               await alertsAPI.delete(alertId, source);
-              fetchAlerts();
+              refetch();
             } catch (error) {
               console.error('Failed to delete alert:', error);
             } finally {
@@ -68,57 +93,16 @@ export default function AlertsManagement() {
     );
   };
 
-  const fetchAlerts = useCallback(async () => {
-    try {
-      const response = await alertsAPI.getAll({ limit: 100 });
-      const alertData = response.data || [];
-      setAlerts(alertData);
-      setFilteredAlerts(alertData);
-    } catch (error) {
-      console.error('Failed to fetch alerts:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAlerts();
-  }, [fetchAlerts]);
-
-  useEffect(() => {
-    let filtered = alerts;
-    
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter((a) => a.status === filterStatus);
-    }
-    
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (a) =>
-          a.type?.toLowerCase().includes(query) ||
-          a.userName?.toLowerCase().includes(query) ||
-          a.location?.address?.toLowerCase().includes(query)
-      );
-    }
-    
-    setFilteredAlerts(filtered);
-  }, [searchQuery, alerts, filterStatus]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchAlerts();
-    setRefreshing(false);
-  };
+  const onRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   const handleUpdateStatus = async (alertId: string, newStatus: string) => {
     try {
       await alertsAPI.updateStatus(alertId, { status: newStatus });
-      setAlerts((prev) =>
-        prev.map((a) => (a._id === alertId ? { ...a, status: newStatus } : a))
-      );
       setSelectedAlert(null);
       Alert.alert('Success', 'Alert status updated');
+      refetch();
     } catch (error) {
       Alert.alert('Error', 'Failed to update alert status');
     }
@@ -275,7 +259,18 @@ export default function AlertsManagement() {
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
+          ListFooterComponent={
+            <ListFooter
+              isFetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              dataLength={filteredAlerts.length}
+              primaryColor={colors.primary}
+              textColor={colors.textTertiary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="checkmark-circle-outline" size={64} color={colors.textTertiary} />

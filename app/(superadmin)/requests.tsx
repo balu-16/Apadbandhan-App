@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { partnersAPI } from '../../src/services/api';
+import { useInfiniteList } from '../../src/hooks/useInfiniteList';
+import { ListFooter } from '../../src/components/ListFooter';
+import { useDebouncedValue } from '../../src/hooks/useDebouncedValue';
 
 interface PartnerRequest {
   _id: string;
@@ -67,30 +70,37 @@ const statusConfig: Record<string, { color: string; bgColor: string; label: stri
 export default function SuperAdminRequestsScreen() {
   const { colors, isDark } = useTheme();
 
-  const [requests, setRequests] = useState<PartnerRequest[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [filteredRequests, setFilteredRequests] = useState<PartnerRequest[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [selectedRequest, setSelectedRequest] = useState<PartnerRequest | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [isUpdating, setIsUpdating] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
 
-  const fetchRequests = useCallback(async () => {
-    try {
-      const response = await partnersAPI.getAll();
-      const data = response.data || [];
-      setRequests(data);
-      setFilteredRequests(data);
-    } catch (error) {
-      console.error('Failed to fetch requests:', error);
-    } finally {
-      setIsLoading(false);
+  const {
+    data: requests,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    onEndReached,
+    refetch,
+  } = useInfiniteList<PartnerRequest>({
+    queryKey: ['partner-requests', filterStatus],
+    fetchFn: (params) => partnersAPI.getAll({ ...params, status: filterStatus !== 'all' ? filterStatus : undefined }),
+    search: debouncedSearch,
+    limit: 20,
+    extraParams: { status: filterStatus !== 'all' ? filterStatus : undefined },
+  });
+
+  const filteredRequests = useMemo(() => {
+    let filtered = requests;
+    if (filterType !== 'all') {
+      filtered = filtered.filter((r) => r.partnerType === filterType);
     }
-  }, []);
+    return filtered;
+  }, [requests, filterType]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -102,43 +112,21 @@ export default function SuperAdminRequestsScreen() {
   }, []);
 
   useEffect(() => {
-    fetchRequests();
     fetchStats();
-  }, [fetchRequests, fetchStats]);
+  }, [fetchStats]);
 
-  useEffect(() => {
-    let filtered = requests;
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter((r) => r.status === filterStatus);
-    }
-    if (filterType !== 'all') {
-      filtered = filtered.filter((r) => r.partnerType === filterType);
-    }
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          r.organizationName?.toLowerCase().includes(query) ||
-          r.contactPerson?.toLowerCase().includes(query) ||
-          r.email?.toLowerCase().includes(query)
-      );
-    }
-    setFilteredRequests(filtered);
-  }, [searchQuery, requests, filterStatus, filterType]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([fetchRequests(), fetchStats()]);
-    setRefreshing(false);
-  };
+  const onRefresh = useCallback(async () => {
+    refetch();
+    fetchStats();
+  }, [refetch, fetchStats]);
 
   const handleStatusUpdate = async (id: string, newStatus: 'approved' | 'rejected') => {
     setIsUpdating(true);
     try {
       await partnersAPI.update(id, { status: newStatus, reviewNotes });
       Alert.alert('Success', `Request ${newStatus} successfully`);
-      await fetchRequests();
-      await fetchStats();
+      refetch();
+      fetchStats();
       setSelectedRequest(null);
       setReviewNotes('');
     } catch (error) {
@@ -161,8 +149,8 @@ export default function SuperAdminRequestsScreen() {
             try {
               await partnersAPI.delete(id);
               Alert.alert('Success', 'Request deleted successfully');
-              await fetchRequests();
-              await fetchStats();
+              refetch();
+              fetchStats();
               setSelectedRequest(null);
             } catch (error) {
               Alert.alert('Error', 'Failed to delete request');
@@ -312,7 +300,18 @@ export default function SuperAdminRequestsScreen() {
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
+          ListFooterComponent={
+            <ListFooter
+              isFetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              dataLength={filteredRequests.length}
+              primaryColor={colors.primary}
+              textColor={colors.textTertiary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="document-text-outline" size={64} color={colors.textTertiary} />

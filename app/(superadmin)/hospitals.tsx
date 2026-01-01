@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,10 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
-import api from '../../src/services/api';
+import { adminAPI } from '../../src/services/api';
+import { useInfiniteList } from '../../src/hooks/useInfiniteList';
+import { ListFooter } from '../../src/components/ListFooter';
+import { useDebouncedValue } from '../../src/hooks/useDebouncedValue';
 
 interface HospitalUser {
   _id: string;
@@ -33,54 +36,30 @@ interface HospitalUser {
 
 export default function HospitalsManagement() {
   const { colors, isDark } = useTheme();
-  const [hospitalUsers, setHospitalUsers] = useState<HospitalUser[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<HospitalUser[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUser, setNewUser] = useState({ fullName: '', email: '', phone: '', password: '', hospitalName: '', department: '' });
   const [selectedUser, setSelectedUser] = useState<HospitalUser | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-  const fetchHospitalUsers = useCallback(async () => {
-    try {
-      const response = await api.get('/admin/hospital-users');
-      const data = response.data || [];
-      setHospitalUsers(data);
-      setFilteredUsers(data);
-    } catch (error) {
-      console.error('Failed to fetch hospital users:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const {
+    data: hospitalUsers,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    onEndReached,
+    refetch,
+  } = useInfiniteList<HospitalUser>({
+    queryKey: ['hospital-users'],
+    fetchFn: (params) => adminAPI.getAllHospitalUsers(params),
+    search: debouncedSearch,
+    limit: 20,
+  });
 
-  useEffect(() => {
-    fetchHospitalUsers();
-  }, [fetchHospitalUsers]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredUsers(hospitalUsers);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = hospitalUsers.filter(
-        (user) =>
-          user.fullName?.toLowerCase().includes(query) ||
-          user.email?.toLowerCase().includes(query) ||
-          user.hospitalName?.toLowerCase().includes(query) ||
-          user.department?.toLowerCase().includes(query)
-      );
-      setFilteredUsers(filtered);
-    }
-  }, [searchQuery, hospitalUsers]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchHospitalUsers();
-    setRefreshing(false);
-  };
+  const onRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   const handleAddHospital = async () => {
     if (!newUser.fullName || !newUser.email || !newUser.phone || !newUser.password) {
@@ -88,10 +67,10 @@ export default function HospitalsManagement() {
       return;
     }
     try {
-      await api.post('/admin/hospital-users', newUser);
+      await adminAPI.createHospitalUser(newUser);
       setShowAddModal(false);
       setNewUser({ fullName: '', email: '', phone: '', password: '', hospitalName: '', department: '' });
-      fetchHospitalUsers();
+      refetch();
       Alert.alert('Success', 'Hospital user added successfully');
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to add hospital user');
@@ -106,9 +85,9 @@ export default function HospitalsManagement() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.delete(`/admin/hospital-users/${id}`);
-            setHospitalUsers((prev) => prev.filter((u) => u._id !== id));
+            await adminAPI.deleteHospitalUser(id);
             Alert.alert('Success', 'Hospital user deleted');
+            refetch();
           } catch (error) {
             Alert.alert('Error', 'Failed to delete');
           }
@@ -184,12 +163,23 @@ export default function HospitalsManagement() {
         </View>
       ) : (
         <FlatList
-          data={filteredUsers}
+          data={hospitalUsers}
           renderItem={renderItem}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
+          ListFooterComponent={
+            <ListFooter
+              isFetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              dataLength={hospitalUsers.length}
+              primaryColor={colors.primary}
+              textColor={colors.textTertiary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="medical-outline" size={64} color={colors.textTertiary} />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,10 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
-import api from '../../src/services/api';
+import { adminAPI } from '../../src/services/api';
+import { useInfiniteList } from '../../src/hooks/useInfiniteList';
+import { ListFooter } from '../../src/components/ListFooter';
+import { useDebouncedValue } from '../../src/hooks/useDebouncedValue';
 
 interface PoliceUser {
   _id: string;
@@ -33,54 +36,30 @@ interface PoliceUser {
 
 export default function PoliceManagement() {
   const { colors, isDark } = useTheme();
-  const [policeUsers, setPoliceUsers] = useState<PoliceUser[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<PoliceUser[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUser, setNewUser] = useState({ fullName: '', email: '', phone: '', password: '', badgeNumber: '', station: '' });
   const [selectedUser, setSelectedUser] = useState<PoliceUser | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-  const fetchPoliceUsers = useCallback(async () => {
-    try {
-      const response = await api.get('/admin/police-users');
-      const data = response.data || [];
-      setPoliceUsers(data);
-      setFilteredUsers(data);
-    } catch (error) {
-      console.error('Failed to fetch police users:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const {
+    data: policeUsers,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    onEndReached,
+    refetch,
+  } = useInfiniteList<PoliceUser>({
+    queryKey: ['police-users'],
+    fetchFn: (params) => adminAPI.getAllPoliceUsers(params),
+    search: debouncedSearch,
+    limit: 20,
+  });
 
-  useEffect(() => {
-    fetchPoliceUsers();
-  }, [fetchPoliceUsers]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredUsers(policeUsers);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = policeUsers.filter(
-        (user) =>
-          user.fullName?.toLowerCase().includes(query) ||
-          user.email?.toLowerCase().includes(query) ||
-          user.badgeNumber?.includes(query) ||
-          user.station?.toLowerCase().includes(query)
-      );
-      setFilteredUsers(filtered);
-    }
-  }, [searchQuery, policeUsers]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchPoliceUsers();
-    setRefreshing(false);
-  };
+  const onRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   const handleAddPolice = async () => {
     if (!newUser.fullName || !newUser.email || !newUser.phone || !newUser.password) {
@@ -88,10 +67,10 @@ export default function PoliceManagement() {
       return;
     }
     try {
-      await api.post('/admin/police-users', newUser);
+      await adminAPI.createPoliceUser(newUser);
       setShowAddModal(false);
       setNewUser({ fullName: '', email: '', phone: '', password: '', badgeNumber: '', station: '' });
-      fetchPoliceUsers();
+      refetch();
       Alert.alert('Success', 'Police user added successfully');
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to add police user');
@@ -106,9 +85,9 @@ export default function PoliceManagement() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.delete(`/admin/police-users/${id}`);
-            setPoliceUsers((prev) => prev.filter((u) => u._id !== id));
+            await adminAPI.deletePoliceUser(id);
             Alert.alert('Success', 'Police user deleted');
+            refetch();
           } catch (error) {
             Alert.alert('Error', 'Failed to delete');
           }
@@ -183,12 +162,23 @@ export default function PoliceManagement() {
         </View>
       ) : (
         <FlatList
-          data={filteredUsers}
+          data={policeUsers}
           renderItem={renderItem}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
+          ListFooterComponent={
+            <ListFooter
+              isFetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              dataLength={policeUsers.length}
+              primaryColor={colors.primary}
+              textColor={colors.textTertiary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="body-outline" size={64} color={colors.textTertiary} />

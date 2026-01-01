@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,10 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
-import api from '../../src/services/api';
+import { adminAPI } from '../../src/services/api';
+import { useInfiniteList } from '../../src/hooks/useInfiniteList';
+import { ListFooter } from '../../src/components/ListFooter';
+import { useDebouncedValue } from '../../src/hooks/useDebouncedValue';
 import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants/theme';
 
 interface Admin {
@@ -34,53 +37,30 @@ interface Admin {
 
 export default function AdminsManagement() {
   const { colors, isDark } = useTheme();
-  const [admins, setAdmins] = useState<Admin[]>([]);
-  const [filteredAdmins, setFilteredAdmins] = useState<Admin[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ fullName: '', email: '', phone: '', password: '' });
   const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-  const fetchAdmins = useCallback(async () => {
-    try {
-      const response = await api.get('/admin/admins');
-      const adminData = response.data || [];
-      setAdmins(adminData);
-      setFilteredAdmins(adminData);
-    } catch (error) {
-      console.error('Failed to fetch admins:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const {
+    data: admins,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    onEndReached,
+    refetch,
+  } = useInfiniteList<Admin>({
+    queryKey: ['admins'],
+    fetchFn: (params) => adminAPI.getAllAdmins(params),
+    search: debouncedSearch,
+    limit: 20,
+  });
 
-  useEffect(() => {
-    fetchAdmins();
-  }, [fetchAdmins]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredAdmins(admins);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = admins.filter(
-        (admin) =>
-          admin.fullName?.toLowerCase().includes(query) ||
-          admin.email?.toLowerCase().includes(query) ||
-          admin.phone?.includes(query)
-      );
-      setFilteredAdmins(filtered);
-    }
-  }, [searchQuery, admins]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchAdmins();
-    setRefreshing(false);
-  };
+  const onRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   const handleAddAdmin = async () => {
     if (!newAdmin.fullName || !newAdmin.email || !newAdmin.phone || !newAdmin.password) {
@@ -88,10 +68,10 @@ export default function AdminsManagement() {
       return;
     }
     try {
-      await api.post('/admin/admins', newAdmin);
+      await adminAPI.createAdmin(newAdmin);
       setShowAddModal(false);
       setNewAdmin({ fullName: '', email: '', phone: '', password: '' });
-      fetchAdmins();
+      refetch();
       Alert.alert('Success', 'Admin added successfully');
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to add admin');
@@ -106,9 +86,9 @@ export default function AdminsManagement() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.delete(`/admin/admins/${adminId}`);
-            setAdmins((prev) => prev.filter((a) => a._id !== adminId));
+            await adminAPI.deleteAdmin(adminId);
             Alert.alert('Success', 'Admin deleted successfully');
+            refetch();
           } catch (error) {
             Alert.alert('Error', 'Failed to delete admin');
           }
@@ -190,12 +170,23 @@ export default function AdminsManagement() {
         </View>
       ) : (
         <FlatList
-          data={filteredAdmins}
+          data={admins}
           renderItem={renderAdmin}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
+          ListFooterComponent={
+            <ListFooter
+              isFetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              dataLength={admins.length}
+              primaryColor={colors.primary}
+              textColor={colors.textTertiary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="shield-outline" size={64} color={colors.textTertiary} />

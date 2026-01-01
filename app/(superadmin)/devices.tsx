@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
-import api from '../../src/services/api';
+import api, { adminAPI, qrCodesAPI } from '../../src/services/api';
+import { useInfiniteList } from '../../src/hooks/useInfiniteList';
+import { ListFooter } from '../../src/components/ListFooter';
+import { useDebouncedValue } from '../../src/hooks/useDebouncedValue';
 import { DeviceMapView } from '../../src/components/DeviceMapView';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -59,11 +62,8 @@ const API_URL = 'http://localhost:3000/api';
 
 export default function DevicesManagement() {
   const { colors, isDark } = useTheme();
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [qrCodes, setQrCodes] = useState<QRCode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [activeTab, setActiveTab] = useState<'devices' | 'qrcodes'>('devices');
   const [stats, setStats] = useState({ total: 0, online: 0, offline: 0, available: 0, assigned: 0 });
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
@@ -73,6 +73,21 @@ export default function DevicesManagement() {
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [generateCount, setGenerateCount] = useState('10');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [qrCodes, setQrCodes] = useState<QRCode[]>([]);
+
+  const {
+    data: devices,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    onEndReached,
+    refetch: refetchDevices,
+  } = useInfiniteList<Device>({
+    queryKey: ['devices'],
+    fetchFn: (params) => adminAPI.getAllDevices(params),
+    search: debouncedSearch,
+    limit: 20,
+  });
 
   const handleGenerateQRCodes = async () => {
     const count = parseInt(generateCount);
@@ -82,7 +97,7 @@ export default function DevicesManagement() {
     }
     setIsGenerating(true);
     try {
-      await api.post('/qrcodes/generate', { count });
+      await qrCodesAPI.generateRandom(count);
       setShowGenerateModal(false);
       setGenerateCount('10');
       fetchData();
@@ -106,56 +121,42 @@ export default function DevicesManagement() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [devicesRes, qrRes] = await Promise.all([
-        api.get('/admin/devices'),
-        api.get('/qrcodes'),
-      ]);
-      
-      const deviceData = devicesRes.data?.devices || devicesRes.data || [];
+      const qrRes = await qrCodesAPI.getAll();
       const qrData = qrRes.data || [];
-      
-      setDevices(deviceData);
       setQrCodes(qrData);
       
-      const online = deviceData.filter((d: Device) => d.status === 'online').length;
+      const online = devices.filter((d: Device) => d.status === 'online').length;
       const available = qrData.filter((q: QRCode) => !q.isAssigned).length;
       
       setStats({
-        total: deviceData.length,
+        total: devices.length,
         online,
-        offline: deviceData.length - online,
+        offline: devices.length - online,
         available,
         assigned: qrData.length - available,
       });
     } catch (error) {
       console.error('Failed to fetch data:', error);
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
+  }, [devices]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
-  };
+  const onRefresh = useCallback(() => {
+    refetchDevices();
+    fetchData();
+  }, [refetchDevices, fetchData]);
 
-  const filteredDevices = devices.filter(
-    (d) =>
-      d.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.code?.includes(searchQuery) ||
-      d.userName?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredQRCodes = qrCodes.filter(
-    (q) =>
-      q.deviceName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      q.deviceCode?.includes(searchQuery)
-  );
+  const filteredQRCodes = useMemo(() => {
+    if (!debouncedSearch.trim()) return qrCodes;
+    return qrCodes.filter(
+      (q) =>
+        q.deviceName?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        q.deviceCode?.includes(debouncedSearch)
+    );
+  }, [qrCodes, debouncedSearch]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -315,12 +316,23 @@ export default function DevicesManagement() {
         </View>
       ) : activeTab === 'devices' ? (
         <FlatList
-          data={filteredDevices}
+          data={devices}
           renderItem={renderDevice}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
+          ListFooterComponent={
+            <ListFooter
+              isFetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              dataLength={devices.length}
+              primaryColor={colors.primary}
+              textColor={colors.textTertiary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="hardware-chip-outline" size={64} color={colors.textTertiary} />
@@ -335,7 +347,7 @@ export default function DevicesManagement() {
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="qr-code-outline" size={64} color={colors.textTertiary} />

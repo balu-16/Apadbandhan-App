@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,14 +17,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/hooks/useTheme';
 import { adminAPI } from '../../src/services/api';
+import { useInfiniteList } from '../../src/hooks/useInfiniteList';
+import { ListFooter } from '../../src/components/ListFooter';
 import { FontSize, FontWeight, BorderRadius, Spacing } from '../../src/constants/theme';
+import { useDebouncedValue } from '../../src/hooks/useDebouncedValue';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface EmergencyContact {
   name: string;
   phone: string;
-  relationship: string;
+  relation: string;
 }
 
 interface Device {
@@ -52,13 +55,25 @@ interface User {
 
 export default function UsersManagement() {
   const { colors, isDark } = useTheme();
-  const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+
+  const {
+    data: users,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    onEndReached,
+    refetch,
+    totalCount,
+  } = useInfiniteList<User>({
+    queryKey: ['users'],
+    fetchFn: (params) => adminAPI.getAllUsers({ ...params, role: 'user' }),
+    search: debouncedSearch,
+    limit: 20,
+  });
 
   // Blood Group Options
   const bloodGroupOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -86,44 +101,9 @@ export default function UsersManagement() {
     setSelectedUser(null);
   };
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      const response = await adminAPI.getAllUsers();
-      const userData = response.data?.users || response.data || [];
-      setUsers(userData);
-      setFilteredUsers(userData);
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-      Alert.alert('Error', 'Failed to fetch users');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredUsers(users);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = users.filter(
-        (user) =>
-          user.fullName?.toLowerCase().includes(query) ||
-          user.email?.toLowerCase().includes(query) ||
-          user.phone?.includes(query)
-      );
-      setFilteredUsers(filtered);
-    }
-  }, [searchQuery, users]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchUsers();
-    setRefreshing(false);
-  };
+  const onRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   const resetNewUser = () => {
     setNewUser({
@@ -139,7 +119,7 @@ export default function UsersManagement() {
   const addEmergencyContact = () => {
     setNewUser({
       ...newUser,
-      emergencyContacts: [...newUser.emergencyContacts, { name: '', phone: '', relationship: '' }],
+      emergencyContacts: [...newUser.emergencyContacts, { name: '', phone: '', relation: '' }],
     });
   };
 
@@ -168,11 +148,11 @@ export default function UsersManagement() {
 
     setIsSubmitting(true);
     try {
-      await adminAPI.createUser(newUser as any);
+      await adminAPI.createUser(newUser);
       Alert.alert('Success', 'User created successfully');
       setIsAddModalVisible(false);
       resetNewUser();
-      fetchUsers();
+      refetch();
     } catch (error: any) {
       const message = error.response?.data?.message || 'Failed to create user';
       Alert.alert('Error', Array.isArray(message) ? message.join(', ') : message);
@@ -193,8 +173,8 @@ export default function UsersManagement() {
           onPress: async () => {
             try {
               await adminAPI.deleteUser(userId);
-              setUsers((prev) => prev.filter((u) => u._id !== userId));
               Alert.alert('Success', 'User deleted successfully');
+              refetch();
             } catch (error) {
               Alert.alert('Error', 'Failed to delete user');
             }
@@ -283,13 +263,24 @@ export default function UsersManagement() {
         </View>
       ) : (
         <FlatList
-          data={filteredUsers}
+          data={users}
           renderItem={renderUser}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            <RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+          ListFooterComponent={
+            <ListFooter
+              isFetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              dataLength={users.length}
+              primaryColor={colors.primary}
+              textColor={colors.textTertiary}
+            />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -426,7 +417,7 @@ export default function UsersManagement() {
                         </View>
                         <View style={styles.infoContent}>
                           <Text style={[styles.infoValue, { color: colors.text }]}>{contact.name}</Text>
-                          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{contact.relationship} • {contact.phone}</Text>
+                          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{contact.relation} • {contact.phone}</Text>
                         </View>
                       </View>
                     ))}
@@ -606,8 +597,8 @@ export default function UsersManagement() {
                       style={[styles.contactInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                       placeholder="Relationship (e.g., Father, Mother)"
                       placeholderTextColor={colors.textTertiary}
-                      value={contact.relationship}
-                      onChangeText={(text) => updateEmergencyContact(index, 'relationship', text)}
+                      value={contact.relation}
+                      onChangeText={(text) => updateEmergencyContact(index, 'relation', text)}
                     />
                   </View>
                 ))}

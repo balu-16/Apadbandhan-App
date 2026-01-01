@@ -1,6 +1,24 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
+export interface Meta {
+  total: number;
+  page: number;
+  lastPage: number;
+  limit: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: Meta;
+}
+
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
 export interface UserProfile {
   id: string;
   fullName: string;
@@ -145,7 +163,7 @@ export const devicesAPI = {
 };
 
 export const alertsAPI = {
-  getAll: (params?: { status?: string; limit?: number; skip?: number }) =>
+  getAll: (params?: { status?: string; page?: number; limit?: number; search?: string }) =>
     api.get('/alerts', { params }),
   getStats: () => api.get('/alerts/stats'),
   getCombined: (source: 'all' | 'alert' | 'sos' = 'all') =>
@@ -275,20 +293,20 @@ export const adminAPI = {
   getUserLoginLogs: (userId: string) => api.get(`/admin/users/${userId}/login-logs`),
 
   // Admins Management (superadmin only)
-  getAllAdmins: () => api.get('/admin/admins'),
+  getAllAdmins: (params?: PaginationParams) => api.get('/admin/admins', { params }),
   createAdmin: (data: { fullName: string; email: string; phone: string; password: string }) =>
     api.post('/admin/admins', data),
   deleteAdmin: (adminId: string) => api.delete(`/admin/admins/${adminId}`),
   getAdminLoginLogs: (adminId: string) => api.get(`/admin/admins/${adminId}/login-logs`),
 
   // Police Users Management (superadmin only)
-  getAllPoliceUsers: () => api.get('/admin/police-users'),
+  getAllPoliceUsers: (params?: PaginationParams) => api.get('/admin/police-users', { params }),
   createPoliceUser: (data: { fullName: string; email: string; phone: string; password: string; badgeNumber?: string; station?: string }) =>
     api.post('/admin/police-users', data),
   deletePoliceUser: (userId: string) => api.delete(`/admin/police-users/${userId}`),
 
   // Hospital Users Management (superadmin only)
-  getAllHospitalUsers: () => api.get('/admin/hospital-users'),
+  getAllHospitalUsers: (params?: PaginationParams) => api.get('/admin/hospital-users', { params }),
   createHospitalUser: (data: { fullName: string; email: string; phone: string; password: string; hospitalName?: string; department?: string }) =>
     api.post('/admin/hospital-users', data),
   deleteHospitalUser: (userId: string) => api.delete(`/admin/hospital-users/${userId}`),
@@ -484,7 +502,8 @@ export const systemConfigAPI = {
 // Partners API
 export const partnersAPI = {
   // Get all partner requests
-  getAll: (status?: string) => api.get('/partners', { params: { status } }),
+  getAll: (params?: { status?: string; page?: number; limit?: number; search?: string }) => 
+    api.get('/partners', { params }),
 
   // Get partner request stats
   getStats: () => api.get('/partners/stats'),

@@ -11,8 +11,14 @@ interface UseOnDutyTrackingReturn {
   lastUpdate: Date | null;
 }
 
-const LOCATION_UPDATE_INTERVAL = 60000; // 60 seconds
+const LOCATION_UPDATE_INTERVAL = 30000; // 30 seconds
 const MIN_DISTANCE_METERS = 50; // 50 meters minimum movement
+
+// Convert speed from m/s (GPS raw) to km/h for storage/display
+const convertSpeedToKmh = (speedMs: number | null | undefined): number | undefined => {
+  if (speedMs === null || speedMs === undefined || speedMs < 0) return undefined;
+  return Math.round(speedMs * 3.6 * 10) / 10; // Convert m/s to km/h, round to 1 decimal
+};
 
 // Haversine formula to calculate distance between two coordinates
 const calculateDistance = (
@@ -71,13 +77,13 @@ export const useOnDutyTracking = (): UseOnDutyTrackingReturn => {
         }
       }
 
-      // Send location to backend
+      // Send location to backend (convert speed from m/s to km/h)
       await onDutyAPI.updateLocation({
         lat: latitude,
         lng: longitude,
         accuracy: accuracy || undefined,
         altitude: altitude || undefined,
-        speed: speed || undefined,
+        speed: convertSpeedToKmh(speed), // Convert m/s to km/h
         heading: heading || undefined,
       });
 

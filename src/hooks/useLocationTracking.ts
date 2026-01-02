@@ -16,6 +16,12 @@ interface LocationData {
 
 const MIN_DISTANCE_METERS = 50; // Minimum distance to trigger location update
 
+// Convert speed from m/s (GPS raw) to km/h for storage/display
+const convertSpeedToKmh = (speedMs: number | null | undefined): number | undefined => {
+  if (speedMs === null || speedMs === undefined || speedMs < 0) return undefined;
+  return Math.round(speedMs * 3.6 * 10) / 10; // Convert m/s to km/h, round to 1 decimal
+};
+
 // Haversine formula to calculate distance between two coordinates
 const calculateDistanceMeters = (
   lat1: number,
@@ -121,7 +127,7 @@ export function useLocationTracking() {
         latitude: currentLocation.coords.latitude,
         longitude: currentLocation.coords.longitude,
         altitude: currentLocation.coords.altitude || undefined,
-        speed: currentLocation.coords.speed || undefined,
+        speed: convertSpeedToKmh(currentLocation.coords.speed), // Convert m/s to km/h
         heading: currentLocation.coords.heading || undefined,
         accuracy: currentLocation.coords.accuracy || undefined,
       };
@@ -151,19 +157,19 @@ export function useLocationTracking() {
         locationSubscription.current.remove();
       }
 
-      // Start watching location with updates every 30 seconds or 100 meters
+      // Start watching location with updates every 10 seconds or 50 meters
       locationSubscription.current = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.Balanced,
-          timeInterval: 30000, // 30 seconds
-          distanceInterval: 100, // 100 meters
+          accuracy: Location.Accuracy.High,
+          timeInterval: 10000, // 10 seconds
+          distanceInterval: 50, // 50 meters
         },
         async (location) => {
           const locationData: LocationData = {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
             altitude: location.coords.altitude || undefined,
-            speed: location.coords.speed || undefined,
+            speed: convertSpeedToKmh(location.coords.speed), // Convert m/s to km/h
             heading: location.coords.heading || undefined,
             accuracy: location.coords.accuracy || undefined,
           };

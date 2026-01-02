@@ -120,7 +120,7 @@ const OnDutyToggle: React.FC<OnDutyToggleProps> = ({ role, style }) => {
       {/* Info */}
       <Text style={[styles.infoText, { color: colors.textTertiary }]}>
         {isOnDuty 
-          ? 'Your location is being shared every 60 seconds when you move 50+ meters.'
+          ? 'Your location is being shared every 30 seconds when you move 50+ meters.'
           : 'Go on duty to start sharing your location for emergency response.'
         }
       </Text>
